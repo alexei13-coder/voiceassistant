@@ -224,6 +224,7 @@ class Application:
             state=self.state_machine.state,
             demo=self.demo_enabled,
             assistant_name=settings.assistant.name,
+            wake_word=settings.assistant.wake_word,
             address_form=settings.assistant.address_form,
             model=settings.llm.model,
             hotkeys=self.hotkeys,

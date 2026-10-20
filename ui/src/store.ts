@@ -35,6 +35,7 @@ export interface CoreInfo {
   coreVersion: string
   demo: boolean
   assistantName: string
+  wakeWord: string
   addressForm: string
   model: string
   hotkeys: HelloMessage['hotkeys']
@@ -128,6 +129,7 @@ export const useSwyvorn = create<SwyvornStore>()((set, get) => ({
             coreVersion: msg.core_version,
             demo: msg.demo,
             assistantName: msg.assistant_name,
+            wakeWord: msg.wake_word,
             addressForm: msg.address_form,
             model: msg.model,
             hotkeys: msg.hotkeys,

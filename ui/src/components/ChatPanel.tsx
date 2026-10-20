@@ -3,7 +3,7 @@
 
 import { memo, useLayoutEffect, useRef, useState, type UIEvent } from 'react'
 import { formatTimeLong, formatTimeShort } from '../format'
-import { DEFAULT_ASSISTANT_NAME, roleLabel } from '../labels'
+import { DEFAULT_ASSISTANT_NAME, DEFAULT_WAKE_WORD, roleLabel } from '../labels'
 import type { ChatMessage } from '../protocol'
 import { useSwyvorn } from '../store'
 import { Icon } from './Icon'
@@ -43,6 +43,7 @@ const ChatItem = memo(function ChatItem({ message, assistantName }: { message: C
 export function ChatPanel() {
   const messages = useSwyvorn((s) => s.messages)
   const assistantName = useSwyvorn((s) => s.info?.assistantName || DEFAULT_ASSISTANT_NAME)
+  const wakeWord = useSwyvorn((s) => s.info?.wakeWord || DEFAULT_WAKE_WORD)
   const feedRef = useRef<HTMLDivElement>(null)
   const [pinned, setPinned] = useState(true)
   /** id последней реплики в момент, когда пользователь отлистал вверх. */
@@ -72,7 +73,7 @@ export function ChatPanel() {
     <Section title="Диалог" className="chat">
       <div className="chat__feed fade-scroll" ref={feedRef} onScroll={onScroll} role="log" aria-live="polite" aria-label="Диалог">
         {messages.length === 0 ? (
-          <p className="chat__empty">Пока тихо — скажите „{assistantName}“ или напишите команду внизу</p>
+          <p className="chat__empty">Пока тихо — скажите „{wakeWord}“ или напишите команду внизу</p>
         ) : (
           messages.map((m) => <ChatItem key={m.id} message={m} assistantName={assistantName} />)
         )}

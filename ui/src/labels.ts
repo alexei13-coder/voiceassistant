@@ -4,6 +4,8 @@ import type { ActionDecision, ActionStatus, AssistantState, ChatMessage, CorePro
 import type { ConnectionStatus } from './store'
 
 export const DEFAULT_ASSISTANT_NAME = 'SWYVORN'
+/** Как имя звучит вслух — его и надо произнести, чтобы позвать ассистента. */
+export const DEFAULT_WAKE_WORD = 'Свайворн'
 export const DEFAULT_ACTIVATE_HOTKEY = 'Ctrl+Alt+J'
 export const DEFAULT_STOP_HOTKEY = 'Ctrl+Alt+Escape'
 
@@ -80,7 +82,7 @@ export function roleLabel(role: ChatMessage['role'], assistantName: string | und
 export interface HintContext {
   reason: string | null
   activateHotkey: string | undefined
-  assistantName: string | undefined
+  wakeWord: string | undefined
   /** Текущий вопрос принимает только кнопку — звать к голосовому «да» нельзя. */
   buttonOnly?: boolean
 }
@@ -89,7 +91,7 @@ export interface HintContext {
 export function stateHint(state: AssistantState, ctx: HintContext): string {
   switch (state) {
     case 'idle':
-      return `Скажите „${ctx.assistantName || DEFAULT_ASSISTANT_NAME}“ или нажмите ${ctx.activateHotkey || DEFAULT_ACTIVATE_HOTKEY}`
+      return `Скажите „${ctx.wakeWord || DEFAULT_WAKE_WORD}“ или нажмите ${ctx.activateHotkey || DEFAULT_ACTIVATE_HOTKEY}`
     case 'listening':
       return 'Слушаю…'
     case 'thinking':

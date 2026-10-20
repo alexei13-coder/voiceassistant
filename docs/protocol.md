@@ -150,7 +150,7 @@ interface Hotkeys {
 
 | `type` | Поля | Когда |
 |---|---|---|
-| `hello` | `protocol: 1`, `core_version`, `state`, `demo: bool`, `assistant_name`, `address_form`, `model`, `hotkeys: Hotkeys`, `ui: {reduced_motion: bool}`, `muted: bool`, `history: ChatMessage[]` (последние ≤ 100), `actions: ActionEntry[]` (последние ≤ 200), `confirmation: ConfirmationRequest \| null` | сразу после успешного `auth` |
+| `hello` | `protocol: 1`, `core_version`, `state`, `demo: bool`, `assistant_name`, `wake_word` (произношение имени кириллицей, напр. «Свайворн»), `address_form`, `model`, `hotkeys: Hotkeys`, `ui: {reduced_motion: bool}`, `muted: bool`, `history: ChatMessage[]` (последние ≤ 100), `actions: ActionEntry[]` (последние ≤ 200), `confirmation: ConfirmationRequest \| null` | сразу после успешного `auth` |
 | `state` | `state`, `reason: string \| null` | при каждом переходе |
 | `audio_level` | `source: 'mic' \| 'tts'`, `level: number` (0..1) | не чаще 30 раз в секунду, только в `listening` (mic) и `speaking` (tts) |
 | `metrics` | все поля `Metrics` | раз в секунду |
@@ -252,7 +252,7 @@ interface Hotkeys {
 
 1. `idle` 4 с;
 2. `listening` 3 с — синтетический уровень микрофона, похожий на речь;
-3. реплика пользователя «SWYVORN, какая сегодня погода?»;
+3. реплика пользователя «Свайворн, какая сегодня погода?»;
 4. `thinking` 2,5 с;
 5. `speaking` ~5 с — ответ печатается потоково, уровень голоса синхронизирован с текстом; в журнал добавляется демо-запись инструмента `weather` (`risk: safe`, `status: ok`);
 6. `idle` 4 с;

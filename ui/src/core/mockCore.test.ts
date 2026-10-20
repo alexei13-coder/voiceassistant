@@ -168,7 +168,7 @@ describe('MockCore', () => {
     await vi.advanceTimersByTimeAsync(4000)
     expect(useSwyvorn.getState().state).toBe('listening')
     await vi.advanceTimersByTimeAsync(3000)
-    expect(useSwyvorn.getState().messages.at(-1)?.text).toBe('SWYVORN, какая сегодня погода?')
+    expect(useSwyvorn.getState().messages.at(-1)?.text).toBe('Свайворн, какая сегодня погода?')
     expect(useSwyvorn.getState().state).toBe('thinking')
     await vi.advanceTimersByTimeAsync(2500)
     expect(useSwyvorn.getState().state).toBe('speaking')

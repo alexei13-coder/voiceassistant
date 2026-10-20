@@ -156,6 +156,7 @@ def test_hello_has_every_contract_field() -> None:
         state=AssistantState.IDLE,
         demo=True,
         assistant_name=settings.assistant.name,
+        wake_word=settings.assistant.wake_word,
         address_form=settings.assistant.address_form,
         model=settings.llm.model,
         hotkeys=Hotkeys.model_validate(settings.hotkeys.model_dump()),
@@ -167,8 +168,8 @@ def test_hello_has_every_contract_field() -> None:
     )
     data = json.loads(encode_server_message(hello))
     assert set(data) == {
-        "type", "ts", "protocol", "core_version", "state", "demo", "assistant_name", "address_form",
-        "model", "hotkeys", "ui", "muted", "history", "actions", "confirmation",
+        "type", "ts", "protocol", "core_version", "state", "demo", "assistant_name", "wake_word",
+        "address_form", "model", "hotkeys", "ui", "muted", "history", "actions", "confirmation",
     }  # fmt: skip
     assert data["protocol"] == 1
     assert set(data["hotkeys"]) == {"activate", "stop", "stop_fallback", "mute", "repeat", "screen"}

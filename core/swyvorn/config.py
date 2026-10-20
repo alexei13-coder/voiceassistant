@@ -36,7 +36,8 @@ IPC_TOKEN_ENV = "SWYVORN_IPC_TOKEN"  # noqa: S105 — имя переменно�
 # Текст файла, который создаётся при первом запуске. Должен совпадать с docs/configuration.md.
 DEFAULT_SETTINGS_TOML = """\
 [assistant]
-name = "SWYVORN"              # имя ассистента
+name = "SWYVORN"              # имя ассистента (как пишется)
+wake_word = "Свайворн"        # как произносится: слово для голосового вызова (этап 3)
 address_form = "сэр"          # как обращаться к пользователю; спросим при первом запуске (этап 2)
 
 [llm]
@@ -76,8 +77,17 @@ class _Section(BaseModel):
     model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
 
 
+# Только кириллица, пробел и дефис: так слово выглядит в выводе распознавателя речи.
+WAKE_WORD_PATTERN = r"^[А-Яа-яЁё][А-Яа-яЁё -]*$"
+
+
 class AssistantSettings(_Section):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] = "SWYVORN"
+    # Произношение имени кириллицей: распознаватель речи пишет услышанное по-русски.
+    wake_word: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=2, max_length=40, pattern=WAKE_WORD_PATTERN),
+    ] = "Свайворн"
     address_form: Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)] = "сэр"
 
 

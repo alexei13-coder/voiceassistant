@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AssistantState } from './protocol'
 import { STATE_WORDS, connectionBanner, offlineHint, roleLabel, stateHint } from './labels'
 
-const ctx = { reason: null, activateHotkey: 'Ctrl+Shift+Space', assistantName: 'Пятница' }
+const ctx = { reason: null, activateHotkey: 'Ctrl+Shift+Space', wakeWord: 'Пятница' }
 
 describe('stateHint', () => {
   it('в ожидании подставляет имя и сочетание из настроек', () => {
@@ -10,8 +10,8 @@ describe('stateHint', () => {
   })
 
   it('без hello — значения по умолчанию', () => {
-    expect(stateHint('idle', { reason: null, activateHotkey: undefined, assistantName: undefined })).toBe(
-      'Скажите „SWYVORN“ или нажмите Ctrl+Alt+J',
+    expect(stateHint('idle', { reason: null, activateHotkey: undefined, wakeWord: undefined })).toBe(
+      'Скажите „Свайворн“ или нажмите Ctrl+Alt+J',
     )
   })
 

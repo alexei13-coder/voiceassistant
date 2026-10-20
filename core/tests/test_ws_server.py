@@ -41,6 +41,7 @@ def make_hello() -> HelloMessage:
         state=AssistantState.IDLE,
         demo=True,
         assistant_name=settings.assistant.name,
+        wake_word=settings.assistant.wake_word,
         address_form=settings.assistant.address_form,
         model=settings.llm.model,
         hotkeys=Hotkeys.model_validate(settings.hotkeys.model_dump()),

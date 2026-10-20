@@ -57,7 +57,7 @@ class DemoTimings:
         return nominal * self.time_scale
 
 
-USER_WEATHER = "SWYVORN, какая сегодня погода?"
+USER_WEATHER = "Свайворн, какая сегодня погода?"
 USER_TRASH = "Удали старые скриншоты из „Загрузок“"
 # Без обращения в конце: его добавляет _addressed() по настройке address_form. ~5 с речи.
 WEATHER_REPLY = "Сейчас в Москве плюс двенадцать, облачно. К вечеру возможен дождь"

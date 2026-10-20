@@ -42,6 +42,7 @@ async def test_hello_snapshot_and_live_metrics() -> None:
         assert hello["type"] == "hello"
         assert hello["demo"] is True
         assert hello["assistant_name"] == "SWYVORN"
+        assert hello["wake_word"] == "Свайворн"
         assert hello["ui"] == {"reduced_motion": False}
         metrics = await recv_until(ws, "metrics", within=3)
         assert 0 <= metrics["cpu_percent"] <= 100

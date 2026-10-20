@@ -13,10 +13,10 @@ function StateCaption() {
   const state = useSwyvorn((s) => s.state)
   const reason = useSwyvorn((s) => s.stateReason)
   const activateHotkey = useSwyvorn((s) => s.info?.hotkeys.activate)
-  const assistantName = useSwyvorn((s) => s.info?.assistantName)
+  const wakeWord = useSwyvorn((s) => s.info?.wakeWord)
   const buttonOnly = useSwyvorn((s) => s.confirmation?.button_only ?? false)
   const connection = useSwyvorn((s) => s.connection)
-  const hint = offlineHint(connection) ?? stateHint(state, { reason, activateHotkey, assistantName, buttonOnly })
+  const hint = offlineHint(connection) ?? stateHint(state, { reason, activateHotkey, wakeWord, buttonOnly })
 
   return (
     // key: при смене состояния подпись мягко появляется заново.

@@ -46,6 +46,7 @@ def test_missing_file_is_created_with_defaults(tmp_path: Path) -> None:
 def test_defaults() -> None:
     s = Settings()
     assert s.assistant.name == "SWYVORN"
+    assert s.assistant.wake_word == "Свайворн"
     assert s.assistant.address_form == "сэр"
     assert s.llm.model == "claude-opus-5-5"
     assert s.llm.effort == "low"
@@ -59,7 +60,7 @@ def test_defaults() -> None:
 def test_valid_values_are_applied(tmp_path: Path) -> None:
     path = tmp_path / "settings.toml"
     path.write_text(
-        '[assistant]\nname = "Пятница"\naddress_form = "  мэм "\n'
+        '[assistant]\nname = "Пятница"\nwake_word = " Пятница "\naddress_form = "  мэм "\n'
         '[llm]\neffort = "high"\n[hotkeys]\nmute = "Ctrl+Shift+F12"\n'
         "[ui]\nreduced_motion = true\n[demo]\nenabled = false\n"
         '[logging]\nlevel = "debug"\n',
@@ -67,6 +68,7 @@ def test_valid_values_are_applied(tmp_path: Path) -> None:
     )
     s = load_settings(path)
     assert s.assistant.name == "Пятница"
+    assert s.assistant.wake_word == "Пятница"
     assert s.assistant.address_form == "мэм"
     assert s.llm.effort == "high"
     assert s.hotkeys.mute == "Ctrl+Shift+F12"
@@ -87,6 +89,8 @@ def test_valid_values_are_applied(tmp_path: Path) -> None:
         ("hotkeys", "stop", 42),
         ("assistant", "name", "   "),
         ("assistant", "address_form", "x" * 100),
+        ("assistant", "wake_word", "Swyvorn"),  # латиница: распознаватель пишет по-русски
+        ("assistant", "wake_word", "я"),
     ],
 )
 def test_invalid_value_falls_back_to_default_with_warning(

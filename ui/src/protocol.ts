@@ -129,6 +129,8 @@ export interface HelloMessage extends Base {
   state: AssistantState
   demo: boolean
   assistant_name: string
+  /** Как произносится имя (кириллицей) — слово для голосового вызова. */
+  wake_word: string
   address_form: string
   model: string
   hotkeys: Hotkeys

@@ -153,6 +153,7 @@ class HelloMessage(_Out):
     state: AssistantState
     demo: bool
     assistant_name: str
+    wake_word: str
     address_form: str
     model: str
     hotkeys: Hotkeys

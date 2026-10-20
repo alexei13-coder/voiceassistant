@@ -167,6 +167,7 @@ export class MockCore {
       state: this.state,
       demo: true,
       assistant_name: 'SWYVORN',
+      wake_word: 'Свайворн',
       address_form: 'сэр',
       model: 'claude-opus-5-5',
       hotkeys: HOTKEYS,
@@ -327,7 +328,7 @@ export class MockCore {
       await sleep(4000, signal)
       this.setState('listening')
       await sleep(3000, signal)
-      this.chat('user', 'SWYVORN, какая сегодня погода?')
+      this.chat('user', 'Свайворн, какая сегодня погода?')
       this.setState('thinking')
       await sleep(2500, signal)
       this.setState('speaking')
