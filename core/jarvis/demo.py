@@ -11,6 +11,7 @@ import asyncio
 import itertools
 import logging
 import random
+import time
 from collections.abc import Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -46,6 +47,11 @@ class DemoTimings:
     resume_after_idle: float = 3.0
     confirmation_timeout: float = 15.0
     time_scale: float = 1.0
+    # Часы и сон для темпа уровней звука. perf_counter, а не loop.time(): на Python 3.12
+    # под Windows монотонные часы цикла тикают по 15,6 мс, и номер кадра считался бы неточно.
+    # В тестах подменяются ради детерминизма.
+    clock: Callable[[], float] = time.perf_counter
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
 
     def real(self, nominal: float) -> float:
         return nominal * self.time_scale
@@ -386,9 +392,9 @@ class DemoController:
         нагрузка), просроченные кадры пропускаются, а не догоняются пачкой: уровни никогда не
         идут чаще FRAME_RATE, а длительность фразы не зависит от точности таймера.
         """
-        loop = asyncio.get_running_loop()
+        clock, sleep = self._t.clock, self._t.sleep
         period = self._frame_period
-        started = loop.time()
+        started = clock()
         due_index = 0
         for index, level in enumerate(frames):
             if index < due_index:
@@ -396,8 +402,8 @@ class DemoController:
             if stop is not None and stop():
                 return False
             self._bus.publish(AudioLevelMessage(source=source, level=level))
-            await asyncio.sleep(max(0.0, started + (index + 1) * period - loop.time()))
-            due_index = int((loop.time() - started) / period)
+            await sleep(max(0.0, started + (index + 1) * period - clock()))
+            due_index = int((clock() - started) / period)
         return True
 
     async def _listen(

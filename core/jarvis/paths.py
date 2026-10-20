@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import posixpath
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -25,9 +26,10 @@ def default_data_dir(
         return base / "Jarvis"
     if platform == "darwin":
         return home / "Library" / "Application Support" / "Jarvis"
-    # По спецификации XDG относительный путь в XDG_CONFIG_HOME недействителен.
+    # По спецификации XDG относительный путь в XDG_CONFIG_HOME недействителен. Проверка по правилам
+    # POSIX, а не текущей ОС: на Windows Path("/xdg").is_absolute() ложно из-за отсутствия диска.
     xdg = env.get("XDG_CONFIG_HOME")
-    base = Path(xdg) if xdg and Path(xdg).is_absolute() else home / ".config"
+    base = Path(xdg) if xdg and posixpath.isabs(xdg) else home / ".config"
     return base / "jarvis"
 
 

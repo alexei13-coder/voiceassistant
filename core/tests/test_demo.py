@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import time
+import itertools
 from dataclasses import replace
 
 import pytest
@@ -340,20 +340,39 @@ async def test_scenario_waits_while_muted() -> None:
 
 @pytest.mark.parametrize("stall", [0.05, 0.12])  # меньше и больше трёх кадров
 async def test_audio_levels_never_exceed_frame_rate_even_after_a_stall(stall: float) -> None:
-    c = build_core(timings=DemoTimings())  # реальное время: 30 кадров в секунду
+    # Детерминированные часы: реальные таймеры (особенно 15,6 мс на Windows) делают такой тест хрупким.
+    now = 0.0
+    sleeps = 0
+
+    async def fake_sleep(delay: float) -> None:
+        nonlocal now, sleeps
+        sleeps += 1
+        now += delay + (stall if sleeps == 6 else 0.0)  # шестой сон «проспал», как при занятом цикле
+        await asyncio.sleep(0)
+
+    c = build_core(timings=DemoTimings(clock=lambda: now, sleep=fake_sleep))
     stamps: list[float] = []
-    loop = asyncio.get_running_loop()
-    c.bus.subscribe(lambda e: stamps.append(loop.time()) if e.type == "audio_level" else None)
+    enough = asyncio.Event()
+
+    def on_event(event: object) -> None:
+        if getattr(event, "type", None) == "audio_level":
+            stamps.append(now)
+            if len(stamps) >= 25:
+                enough.set()
+
+    c.bus.subscribe(on_event)
     try:
         await c.demo.command("set_state", S.SPEAKING)
-        await asyncio.sleep(0.2)
-        time.sleep(stall)  # noqa: ASYNC251 — намеренно блокируем цикл, как грубый таймер Windows
-        await asyncio.sleep(0.4)
+        async with asyncio.timeout(3):
+            await enough.wait()
     finally:
         await c.ks.shutdown()
     period = 1 / FRAME_RATE
-    started = stamps[0]
-    slots = [int((t - started) / period + 1e-6) for t in stamps]
+    slots = [int(round((t - stamps[0]) / period, 6)) for t in stamps]
     # Не больше одного уровня на слот: после задержки кадры пропущены, а не отправлены пачкой.
     assert len(slots) == len(set(slots))
-    assert len(stamps) <= (stamps[-1] - started) / period + 2
+    # Ровно один разрыв — на месте задержки, и в нём просроченные кадры пропущены, а не догнаны.
+    gaps = [b - a for a, b in itertools.pairwise(slots)]
+    assert sorted(set(gaps)) == [1, 1 + int(stall / period)]
+    assert gaps.count(1 + int(stall / period)) == 1
+    assert len(stamps) <= (stamps[-1] - stamps[0]) / period + 2
