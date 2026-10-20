@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from swyvorn.logging_setup import REDACTED, SecretRedactor, setup_logging
+from swyvorn.logging_setup import REDACTED, SecretRedactor, attach_log_file, setup_logging
 
 SECRET_TOKEN = "ipc-Token-Value-42xyz"
 API_KEY = "sk-ant-api03-AbCdEf0123456789_-zz"
@@ -154,6 +154,38 @@ def test_unwritable_log_file_falls_back_to_stderr(
     try:
         setup_logging(level="INFO", log_file=blocker / "logs" / "core.log", stream=stream, redactor=redactor)
         assert "Файл журнала недоступен" in stream.getvalue()
+    finally:
+        root = logging.getLogger()
+        for handler in [h for h in root.handlers if h.get_name() == "swyvorn"]:
+            root.removeHandler(handler)
+            handler.close()
+
+
+def test_file_attached_later_gets_early_records(
+    tmp_path: Path, redactor: SecretRedactor, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "excepthook", sys.excepthook)
+    monkeypatch.setattr(threading, "excepthook", threading.excepthook)
+    stream = io.StringIO()
+    log_file = tmp_path / "logs" / "core.log"
+    log = logging.getLogger("swyvorn.test")
+    try:
+        setup_logging(level="INFO", log_file=None, stream=stream, redactor=redactor)
+        log.warning("до файла, токен %s", SECRET_TOKEN)
+        # До attach_log_file на диске ничего: так проверка прав идёт раньше любой записи.
+        assert list(tmp_path.iterdir()) == []
+        assert "до файла" in stream.getvalue()
+
+        assert attach_log_file(log_file, redactor=redactor) is True
+        log.info("после файла")
+        ours = [h for h in logging.getLogger().handlers if h.get_name() == "swyvorn"]
+        assert len(ours) == 2  # stderr и файл; буфер ранних записей снят
+        for handler in ours:
+            handler.flush()
+        text = log_file.read_text(encoding="utf-8")
+        assert text.index("до файла") < text.index("после файла")
+        assert text.count("до файла") == 1
+        assert SECRET_TOKEN not in text
     finally:
         root = logging.getLogger()
         for handler in [h for h in root.handlers if h.get_name() == "swyvorn"]:

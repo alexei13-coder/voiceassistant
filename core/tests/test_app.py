@@ -6,13 +6,17 @@ import asyncio
 import io
 import json
 import logging
+import os
 import socket
+import threading
 from pathlib import Path
 
 import pytest
-from conftest import TOKEN, open_client, recv_json, recv_until, running_app
+from conftest import TAURI_ORIGIN, TOKEN, open_client, recv_json, recv_until, running_app
+from websockets.exceptions import ConnectionClosed
 
 from swyvorn import app as app_module
+from swyvorn.api.ws_server import CLOSE_UNAUTHORIZED
 from swyvorn.app import run
 from swyvorn.cli import CliOptions, ExitCode
 from swyvorn.config import DEFAULT_SETTINGS_TOML
@@ -255,6 +259,8 @@ def test_full_run_writes_defaults_and_never_leaks_secrets(tmp_path: Path) -> Non
     for handler in logging.getLogger().handlers:
         handler.flush()
     log_text = (data / "logs" / "core.log").read_text(encoding="utf-8")
+    # Первая запись сделана ещё до подключения файла (до проверки прав) и всё равно в журнале.
+    assert "папка данных" in log_text.splitlines()[0]
     assert "Ядро готово" in log_text
     assert TOKEN not in log_text
     assert API_KEY not in log_text
@@ -269,7 +275,10 @@ def test_full_run_without_token_is_fatal(tmp_path: Path) -> None:
 
 
 @pytest.mark.usefixtures("restore_logging")
-def test_full_run_elevated_on_windows_exit_3(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("existing", [False, True], ids=["no-data-dir", "empty-data-dir"])
+def test_full_run_elevated_on_windows_exit_3_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], existing: bool
+) -> None:
     monkeypatch.setattr(
         app_module,
         "check_elevation",
@@ -277,11 +286,80 @@ def test_full_run_elevated_on_windows_exit_3(tmp_path: Path, monkeypatch: pytest
     )
     stdout = io.BytesIO()
     data = tmp_path / "data"
-    options = CliOptions(data_dir=data, no_stdin=True)
+    if existing:
+        data.mkdir()
+    options = CliOptions(data_dir=data, no_stdin=True, log_level="DEBUG")
     code = run(options, environ={"SWYVORN_IPC_TOKEN": TOKEN}, stdout_stream=stdout)
     assert code == ExitCode.ELEVATED == 3
     assert json.loads(stdout.getvalue()) == {"type": "fatal", "message": ELEVATED_MESSAGE}
-    assert not (data / "settings.toml").exists()
+    # Процесс администратора не создал ничего: ни папки данных, ни logs/, ни core.log, ни settings.toml.
+    assert [p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*")] == (["data"] if existing else [])
+    assert "от имени администратора" in capsys.readouterr().err
+
+
+class _SignallingStdout(io.BytesIO):
+    """stdout для run() в другом потоке: сообщает о первой записи (строка пишется одним write)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.written = threading.Event()
+
+    def write(self, data: bytes) -> int:  # type: ignore[override]
+        size = super().write(data)
+        self.written.set()
+        return size
+
+    async def ready_port(self, within: float = 5.0) -> int:
+        assert await asyncio.to_thread(self.written.wait, within), "ядро не прислало ready"
+        line = json.loads(self.getvalue().splitlines()[0])
+        assert line["type"] == "ready", line
+        return int(line["port"])
+
+
+@pytest.mark.usefixtures("restore_logging")
+async def test_full_run_removes_secrets_from_process_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Как при запуске из оболочки: токен и ключ приходят в окружении процесса, а не из .env.
+    monkeypatch.setenv("SWYVORN_IPC_TOKEN", TOKEN)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", API_KEY)
+    data = tmp_path / "data"
+    stdout = _SignallingStdout()
+    release = threading.Event()
+    chunks = iter([b'{"type":"shutdown"}\n'])
+
+    def stdin(_size: int) -> bytes:
+        # Оболочка молчит, пока тест проверяет ядро, затем присылает shutdown.
+        release.wait(10)
+        return next(chunks, b"")
+
+    options = CliOptions(port=0, data_dir=data)
+    task = asyncio.create_task(asyncio.to_thread(run, options, stdout_stream=stdout, stdin=stdin))
+    try:
+        port = await stdout.ready_port()
+        # Только имена: при падении pytest не должен печатать всё окружение (в CI там секреты).
+        leaked = [name for name in ("SWYVORN_IPC_TOKEN", "ANTHROPIC_API_KEY") if name in os.environ]
+        assert leaked == []
+
+        # Токен остался в памяти ядра: с ним клиент проходит авторизацию, без него — нет.
+        ws = await open_client(port, origin=TAURI_ORIGIN)
+        assert (await recv_json(ws))["type"] == "hello"
+        await ws.close()
+        intruder = await open_client(port, origin=TAURI_ORIGIN, token="wrong-token-000")
+        with pytest.raises(ConnectionClosed) as closed:
+            await asyncio.wait_for(intruder.recv(), 3)
+        assert closed.value.rcvd is not None
+        assert closed.value.rcvd.code == CLOSE_UNAUTHORIZED
+    finally:
+        release.set()
+        code = await asyncio.wait_for(task, 5)
+    assert code == ExitCode.OK
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    log_text = (data / "logs" / "core.log").read_text(encoding="utf-8")
+    assert "Ключ API: задан" in log_text  # ключ прочитан до того, как его убрали из окружения
+    assert API_KEY not in log_text
+    assert TOKEN not in log_text
 
 
 def test_registered_secrets_are_global_for_logs() -> None:

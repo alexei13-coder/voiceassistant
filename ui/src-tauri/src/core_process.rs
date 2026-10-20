@@ -2,8 +2,8 @@
 //! перезапуск после падения, аварийный стоп и корректное завершение (docs/protocol.md §2–§4).
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::{mpsc, Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
@@ -25,10 +25,14 @@ const CORE_STATUS_EVENT: &str = "core-status";
 const PROTOCOL_VERSION: u32 = 1;
 const READY_TIMEOUT: Duration = Duration::from_secs(20);
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(2);
+/// Сколько ждать, пока поток записи в stdin отпустит процесс ядра, прежде чем убить ядро по PID.
+const CHILD_LOCK_WAIT: Duration = Duration::from_secs(1);
+const CHILD_LOCK_POLL: Duration = Duration::from_millis(50);
 /// Сколько последних строк stderr показать в логе оболочки, если ядро упало:
 /// при сбое до настройки логирования ядра (например, в сборке PyInstaller) больше их нигде нет.
 const STDERR_TAIL_LINES: usize = 20;
-const GAVE_UP_MESSAGE: &str = "Ядро постоянно падает — смотрите logs/core.log";
+const GAVE_UP_MESSAGE: &str = "Ядро постоянно падает — смотрите logs/core.log и logs/shell.log. \
+                               Двойное нажатие «Стоп» перезапустит его.";
 /// Код выхода ядра «ошибка аргументов» (docs/configuration.md). argparse печатает причину
 /// только в stderr, а его хвост попадает в лог оболочки.
 const BAD_ARGUMENTS_EXIT_CODE: i32 = 2;
@@ -61,11 +65,9 @@ pub struct CoreConnection {
 enum Readiness {
     Pending,
     Ready(u16),
-    /// Ядро остановлено и само не поднимется (`fatal` или `crashed` после всех попыток).
-    Failed {
-        status: CoreStatus,
-        message: String,
-    },
+    /// Ядро остановлено и само не поднимется до аварийного стопа: оно прислало `fatal`,
+    /// не запустилось или падало раз за разом. UI получает статус `fatal` с этим сообщением.
+    Failed(String),
 }
 
 #[derive(Debug, Default)]
@@ -85,6 +87,9 @@ pub struct CoreManager {
     transitions: AsyncMutex<()>,
     state: Mutex<Lifecycle>,
     child: Arc<Mutex<Option<CommandChild>>>,
+    /// PID процесса в `child`, 0 — ядро не запущено. По нему ядро убивается, даже когда `child`
+    /// занят зависшей записью в stdin (см. `take_child`).
+    child_pid: AtomicU32,
     /// Очередь строк в stdin ядра. Пишет отдельный поток: обработчики клавиш и трея работают
     /// в главном потоке и не должны ждать канал.
     stdin: mpsc::Sender<Vec<u8>>,
@@ -106,6 +111,7 @@ impl CoreManager {
             state: Mutex::default(),
             stdin: spawn_stdin_writer(Arc::clone(&child))?,
             child,
+            child_pid: AtomicU32::new(0),
             readiness: watch::Sender::new(Readiness::Pending),
             exited: watch::Sender::new(0),
             quitting: AtomicBool::new(false),
@@ -139,10 +145,10 @@ impl CoreManager {
                 port,
                 token: self.token.as_str().to_owned(),
             }),
-            Readiness::Failed { status, message } => {
+            Readiness::Failed(message) => {
                 // Событие могло уйти до того, как UI подписался (например, `fatal` при старте),
                 // поэтому каждый отказ повторяет его: так UI покажет причину, а не «нет связи».
-                self.emit(status, Some(message.clone()));
+                self.emit(CoreStatus::Fatal, Some(message.clone()));
                 Err(message)
             }
             Readiness::Pending => Err(TIMEOUT_MESSAGE.into()),
@@ -159,6 +165,9 @@ impl CoreManager {
         self.readiness.send_replace(Readiness::Pending);
         self.emit(CoreStatus::Restarting, None);
         self.kill_child().await;
+        // Ручной перезапуск (в том числе из `fatal`) начинает новую серию попыток: иначе после
+        // отказа первое же падение снова оставило бы ядро остановленным, без перезапусков.
+        lock(&self.state).restarts.reset();
         self.spawn_locked();
     }
 
@@ -197,7 +206,8 @@ impl CoreManager {
     pub async fn shutdown(&self) {
         let _transition = self.transitions.lock().await;
         let generation = lock(&self.state).generation;
-        let running = lock(&self.child).is_some();
+        // По PID, а не по `child`: его может держать зависшая запись в stdin.
+        let running = self.child_pid.load(Ordering::SeqCst) != 0;
         if running {
             self.send(&ShellMessage::Shutdown);
             let mut exited = self.exited.subscribe();
@@ -218,8 +228,11 @@ impl CoreManager {
 
     /// Последний рубеж при выходе из цикла событий: синхронно убить то, что осталось.
     pub fn kill_now(&self) {
-        let child = lock(&self.child).take();
-        if let Some(child) = child {
+        let pid = self.child_pid.swap(0, Ordering::SeqCst);
+        if pid == 0 {
+            return;
+        }
+        if let Some(child) = take_child(&self.child, pid) {
             if let Err(err) = child.kill() {
                 log::warn!("Не удалось остановить ядро при выходе: {err}");
             }
@@ -248,8 +261,12 @@ impl CoreManager {
         self.readiness.send_replace(Readiness::Pending);
         match self.spawn_process() {
             Ok((events, child)) => {
-                log::info!("Ядро запущено, pid {}", child.pid());
+                let pid = child.pid();
+                log::info!("Ядро запущено, pid {pid}");
+                // `child` сейчас пуст (прежний процесс забрал kill_child), поэтому поток записи
+                // не держит его долго и блокировка здесь не зависнет.
                 *lock(&self.child) = Some(child);
+                self.child_pid.store(pid, Ordering::SeqCst);
                 let this = Arc::clone(self);
                 async_runtime::spawn(async move { this.pump(generation, events).await });
             }
@@ -405,17 +422,15 @@ impl CoreManager {
         for line in &stderr_tail {
             log::warn!(target: CORE_TARGET, "stderr: {line}");
         }
-        if exit.as_ref().and_then(|payload| payload.code) == Some(BAD_ARGUMENTS_EXIT_CODE) {
-            // С теми же аргументами ядро откажет снова — перезапуск только скрыл бы причину.
-            log::error!("{BAD_ARGUMENTS_MESSAGE}");
-            self.fail(BAD_ARGUMENTS_MESSAGE.into());
-            return;
-        }
-        let delay = lock(&self.state).restarts.next_delay(Instant::now());
-        let Some(delay) = delay else {
-            log::error!("{GAVE_UP_MESSAGE}");
-            self.settle_failed(CoreStatus::Crashed, GAVE_UP_MESSAGE.into());
-            return;
+        let code = exit.as_ref().and_then(|payload| payload.code);
+        let delay = restart_delay(code, &mut lock(&self.state).restarts, Instant::now());
+        let delay = match delay {
+            Ok(delay) => delay,
+            Err(message) => {
+                log::error!("{message}");
+                self.fail(message.into());
+                return;
+            }
         };
         self.readiness.send_replace(Readiness::Pending);
         self.emit(CoreStatus::Crashed, Some(reason));
@@ -436,30 +451,29 @@ impl CoreManager {
     /// Убивает текущий процесс со всей группой и делает его события устаревшими.
     async fn kill_child(&self) {
         lock(&self.state).generation += 1;
-        let child = lock(&self.child).take();
-        let Some(child) = child else {
+        let pid = self.child_pid.swap(0, Ordering::SeqCst);
+        if pid == 0 {
             return;
-        };
-        let pid = child.pid();
-        // kill() ждёт завершения процесса — это блокирующий вызов.
-        match async_runtime::spawn_blocking(move || child.kill()).await {
+        }
+        let child = Arc::clone(&self.child);
+        // Ожидание `child` и kill() (он ждёт завершения процесса) — блокирующие вызовы.
+        let stopped = async_runtime::spawn_blocking(move || match take_child(&child, pid) {
+            Some(child) => child.kill(),
+            None => Ok(()),
+        });
+        match stopped.await {
             Ok(Ok(())) => log::info!("Процессы ядра остановлены, pid {pid}"),
             Ok(Err(err)) => log::warn!("Не удалось остановить ядро, pid {pid}: {err}"),
             Err(err) => log::warn!("Остановка ядра прервана, pid {pid}: {err}"),
         }
     }
 
+    /// Ядро остаётся остановленным до аварийного стопа (он запускает его заново),
+    /// UI показывает «Ядро не запускается» с этой причиной.
     fn fail(&self, message: String) {
-        self.settle_failed(CoreStatus::Fatal, message);
-    }
-
-    /// Ядро остаётся остановленным до аварийного стопа (он запускает его заново).
-    fn settle_failed(&self, status: CoreStatus, message: String) {
-        self.readiness.send_replace(Readiness::Failed {
-            status,
-            message: message.clone(),
-        });
-        self.emit(status, Some(message));
+        self.readiness
+            .send_replace(Readiness::Failed(message.clone()));
+        self.emit(CoreStatus::Fatal, Some(message));
     }
 
     fn emit(&self, status: CoreStatus, message: Option<String>) {
@@ -491,6 +505,88 @@ fn spawn_stdin_writer(
             }
         })?;
     Ok(tx)
+}
+
+/// Забирает процесс ядра из `slot`, не завися от потока записи в stdin. Тот держит `slot`
+/// всю запись, а запись в канал (буфер ~4 КиБ на Windows) встаёт, пока ядро не читает stdin, —
+/// зависшее ядро заблокировало бы так и аварийный стоп, и выход. Поэтому `slot` ждём не дольше
+/// `CHILD_LOCK_WAIT`, а затем убиваем дерево процессов по `pid`: канал рвётся, запись
+/// завершается ошибкой, и поток отпускает `slot`.
+fn take_child<T>(slot: &Mutex<Option<T>>, pid: u32) -> Option<T> {
+    let deadline = Instant::now() + CHILD_LOCK_WAIT;
+    loop {
+        match slot.try_lock() {
+            Ok(mut guard) => return guard.take(),
+            Err(TryLockError::Poisoned(poisoned)) => return poisoned.into_inner().take(),
+            Err(TryLockError::WouldBlock) if Instant::now() < deadline => {
+                std::thread::sleep(CHILD_LOCK_POLL);
+            }
+            Err(TryLockError::WouldBlock) => break,
+        }
+    }
+    log::warn!("Ядро не читает stdin — дерево процессов убивается по pid {pid}");
+    if let Err(err) = kill_tree(pid) {
+        log::warn!("Не удалось убить ядро по pid {pid}: {err}");
+    }
+    lock(slot).take()
+}
+
+/// Убивает ядро вместе с потомками в обход `CommandChild` (см. `take_child`).
+#[cfg(windows)]
+fn kill_tree(pid: u32) -> std::io::Result<()> {
+    use std::os::windows::process::CommandExt;
+    use std::path::PathBuf;
+    use std::process::{Command, Stdio};
+
+    // Без этого флага у консольной taskkill мелькнуло бы окно.
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    // PID не достанется чужому процессу: `CommandChild` в `child` держит открытый дескриптор ядра.
+    let taskkill = std::env::var_os("SystemRoot")
+        .map(|root| PathBuf::from(root).join("System32").join("taskkill.exe"))
+        .unwrap_or_else(|| "taskkill.exe".into());
+    let status = Command::new(taskkill)
+        .args(["/T", "/F", "/PID", &pid.to_string()])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!("taskkill: {status}")))
+    }
+}
+
+/// Убивает ядро вместе с потомками в обход `CommandChild` (см. `take_child`).
+#[cfg(unix)]
+fn kill_tree(pid: u32) -> std::io::Result<()> {
+    // Ядро — лидер своей группы процессов (`set_process_group`), номер группы равен его PID.
+    // 0 означал бы собственную группу оболочки.
+    let pgid = libc::pid_t::try_from(pid)
+        .ok()
+        .filter(|&pgid| pgid > 0)
+        .ok_or(std::io::ErrorKind::InvalidInput)?;
+    // SAFETY: killpg только отправляет сигнал и не трогает память процесса.
+    if unsafe { libc::killpg(pgid, libc::SIGKILL) } == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+/// Пауза перед перезапуском упавшего ядра или причина больше его не запускать:
+/// её показывают как `fatal`, и ядро ждёт аварийного стопа.
+fn restart_delay(
+    code: Option<i32>,
+    restarts: &mut RestartPolicy,
+    now: Instant,
+) -> Result<Duration, &'static str> {
+    if code == Some(BAD_ARGUMENTS_EXIT_CODE) {
+        // С теми же аргументами ядро откажет снова — перезапуск только скрыл бы причину.
+        return Err(BAD_ARGUMENTS_MESSAGE);
+    }
+    restarts.next_delay(now).ok_or(GAVE_UP_MESSAGE)
 }
 
 /// Короткое описание причины выхода для `core-status` (UI показывает его в баннере).
@@ -540,5 +636,89 @@ mod tests {
             serde_json::to_string(&event).unwrap(),
             r#"{"status":"restarting","message":null}"#
         );
+    }
+
+    #[test]
+    fn gives_up_as_fatal_until_manual_restart() {
+        let mut restarts = RestartPolicy::default();
+        let now = Instant::now();
+        for _ in 0..5 {
+            assert!(restart_delay(Some(1), &mut restarts, now).is_ok());
+        }
+        // Шестое падение за минуту — отказ: ядро ждёт аварийного стопа, а не «перезапускаю…».
+        assert_eq!(
+            restart_delay(Some(1), &mut restarts, now),
+            Err(GAVE_UP_MESSAGE)
+        );
+        // Аварийный стоп сбрасывает счётчик: новое ядро снова перезапускается после падения.
+        restarts.reset();
+        assert_eq!(
+            restart_delay(None, &mut restarts, now),
+            Ok(Duration::from_secs(1))
+        );
+    }
+
+    #[test]
+    fn bad_arguments_are_fatal_without_spending_attempts() {
+        let mut restarts = RestartPolicy::default();
+        let now = Instant::now();
+        assert_eq!(
+            restart_delay(Some(BAD_ARGUMENTS_EXIT_CODE), &mut restarts, now),
+            Err(BAD_ARGUMENTS_MESSAGE)
+        );
+        assert_eq!(
+            restart_delay(Some(1), &mut restarts, now),
+            Ok(Duration::from_secs(1))
+        );
+    }
+
+    #[test]
+    fn takes_free_child_without_killing() {
+        let slot = Mutex::new(Some("ядро"));
+        let started = Instant::now();
+        // PID 0: если бы take_child дошёл до kill_tree, тот бы отказался.
+        assert_eq!(take_child(&slot, 0), Some("ядро"));
+        assert!(started.elapsed() < CHILD_LOCK_WAIT);
+        assert_eq!(take_child(&slot, 0), None);
+    }
+
+    /// Ядро, которое не читает stdin, не должно блокировать остановку: поток записи
+    /// висит на полном канале с захваченным `child`, а take_child всё равно его забирает.
+    #[cfg(unix)]
+    #[test]
+    fn hung_stdin_write_does_not_block_kill() {
+        use std::io::Write;
+        use std::os::unix::process::{CommandExt, ExitStatusExt};
+        use std::process::{Command, Stdio};
+
+        let child = Command::new("sleep")
+            .arg("30")
+            .stdin(Stdio::piped())
+            .process_group(0)
+            .spawn()
+            .unwrap();
+        let pid = child.id();
+        let slot = Arc::new(Mutex::new(Some(child)));
+        let (locked_tx, locked_rx) = mpsc::channel();
+        let writer = {
+            let slot = Arc::clone(&slot);
+            std::thread::spawn(move || {
+                let mut guard = lock(&slot);
+                let stdin = guard.as_mut().unwrap().stdin.as_mut().unwrap();
+                locked_tx.send(()).unwrap();
+                // Намного больше буфера канала: `sleep` его не читает, запись встаёт.
+                stdin.write_all(&vec![b'\n'; 1 << 20])
+            })
+        };
+        locked_rx.recv().unwrap();
+
+        let started = Instant::now();
+        let mut child = take_child(&slot, pid).expect("процесс забран из slot");
+        assert!(started.elapsed() >= CHILD_LOCK_WAIT);
+        assert!(
+            writer.join().unwrap().is_err(),
+            "запись прервана разрывом канала"
+        );
+        assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGKILL));
     }
 }

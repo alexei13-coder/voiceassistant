@@ -30,6 +30,11 @@ impl RestartPolicy {
         self.recent.push_back(now);
         Some(delay)
     }
+
+    /// Забыть прошлые попытки: после ручного перезапуска счёт начинается заново.
+    pub fn reset(&mut self) {
+        self.recent.clear();
+    }
 }
 
 #[cfg(test)]
@@ -68,5 +73,14 @@ mod tests {
             policy.next_delay(start + Duration::from_secs(600)),
             Some(Duration::from_secs(1))
         );
+    }
+
+    #[test]
+    fn reset_allows_restarts_after_giving_up() {
+        let mut policy = RestartPolicy::default();
+        let start = Instant::now();
+        while policy.next_delay(start).is_some() {}
+        policy.reset();
+        assert_eq!(policy.next_delay(start), Some(Duration::from_secs(1)));
     }
 }

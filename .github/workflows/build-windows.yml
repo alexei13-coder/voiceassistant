@@ -55,6 +55,20 @@ jobs:
         with:
           workspaces: ui/src-tauri
 
+      # generate_context! встраивает ui/dist в бинарник, поэтому тестам оболочки нужен собранный
+      # интерфейс. tauri build ниже пересоберёт его сам (beforeBuildCommand).
+      - name: Сборка интерфейса для тестов оболочки
+        working-directory: ui
+        run: npx vite build
+
+      # Те же тесты, что в CI на Linux, но на целевой ОС: здесь же собирается код оболочки,
+      # который есть только в Windows (остановка зависшего ядра через taskkill).
+      # Не блокирует сборку: тестовый бинарник Tauri на Windows может не стартовать без манифеста
+      # Common Controls v6 (известная проблема tauri-build); основной прогон тестов — в CI на Linux.
+      - name: Тесты оболочки
+        continue-on-error: true
+        run: cargo test --manifest-path ui/src-tauri/Cargo.toml
+
       # tauri.bundle.conf.json добавляет ресурс core/ ← core/dist/swyvorn-core/; интерфейс собирает beforeBuildCommand.
       - name: Сборка приложения и установщика
         working-directory: ui

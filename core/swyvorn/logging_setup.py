@@ -1,6 +1,8 @@
 """Логирование ядра: stderr + core.log с ротацией, секреты вырезаются из каждой записи.
 
 stdout сюда не попадает никогда — это управляющий канал оболочки (docs/protocol.md §2).
+Файл можно подключить позже (attach_log_file): до проверки прав администратора ядро
+не создаёт на диске ничего, а первые записи всё равно попадут в core.log.
 """
 
 from __future__ import annotations
@@ -9,6 +11,7 @@ import logging
 import re
 import sys
 import threading
+from collections import deque
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import TracebackType
@@ -22,6 +25,9 @@ MIN_SECRET_LENGTH = 4
 LOG_FILE_MAX_BYTES = 1024 * 1024
 # core.log + 4 архива = 5 файлов, как в docs/configuration.md.
 LOG_FILE_BACKUPS = 4
+
+# Сколько записей держать до подключения файла: при запуске их единицы.
+EARLY_RECORDS_LIMIT = 200
 
 _FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
 _HANDLER_NAME = "swyvorn"
@@ -108,6 +114,17 @@ class SecretRedactingFilter(logging.Filter):
         return True
 
 
+class _EarlyRecords(logging.Handler):
+    """Записи, сделанные до появления core.log; attach_log_file допишет их в файл."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.records: deque[logging.LogRecord] = deque(maxlen=EARLY_RECORDS_LIMIT)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(record)
+
+
 def _make_handler(handler: logging.Handler, redactor: SecretRedactor) -> logging.Handler:
     handler.setFormatter(logging.Formatter(_FORMAT))
     handler.addFilter(SecretRedactingFilter(redactor))
@@ -123,35 +140,55 @@ def setup_logging(
     redactor: SecretRedactor = REDACTOR,
 ) -> None:
     """Настроить корневой логгер. Повторный вызов заменяет свои обработчики, а не дублирует их;
-    чужие (например, pytest) не трогает."""
+    чужие (например, pytest) не трогает.
+
+    Без log_file — только stderr, а записи копятся до attach_log_file: так ядро ничего
+    не пишет на диск, пока не убедится, что запущено не от имени администратора.
+    """
     root = logging.getLogger()
     for handler in [h for h in root.handlers if h.get_name() == _HANDLER_NAME]:
         root.removeHandler(handler)
         handler.close()
 
     root.addHandler(_make_handler(logging.StreamHandler(stream or sys.stderr), redactor))
-    file_error: OSError | None = None
-    if log_file is not None:
-        try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            file_handler = RotatingFileHandler(
-                log_file,
-                maxBytes=LOG_FILE_MAX_BYTES,
-                backupCount=LOG_FILE_BACKUPS,
-                encoding="utf-8",
-                errors="backslashreplace",
-                delay=True,
-            )
-        except OSError as exc:
-            file_error = exc
-        else:
-            root.addHandler(_make_handler(file_handler, redactor))
+    if log_file is None:
+        root.addHandler(_make_handler(_EarlyRecords(), redactor))
 
     set_level(level)
     logging.captureWarnings(True)
     _install_excepthooks()
-    if file_error is not None:
-        logging.getLogger(__name__).warning("Файл журнала недоступен (%s), пишу только в stderr", file_error)
+    if log_file is not None:
+        attach_log_file(log_file, redactor=redactor)
+
+
+def attach_log_file(log_file: Path, *, redactor: SecretRedactor = REDACTOR) -> bool:
+    """Подключить core.log с ротацией (папка создаётся здесь) и дописать в него записи,
+    накопленные с setup_logging(log_file=None). False — файл недоступен, журнал только в stderr."""
+    root = logging.getLogger()
+    early = next((h for h in root.handlers if isinstance(h, _EarlyRecords)), None)
+    if early is not None:
+        root.removeHandler(early)
+        early.close()
+    try:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=LOG_FILE_MAX_BYTES,
+            backupCount=LOG_FILE_BACKUPS,
+            encoding="utf-8",
+            errors="backslashreplace",
+            delay=True,
+        )
+    except OSError as exc:
+        logging.getLogger(__name__).warning("Файл журнала недоступен (%s), пишу только в stderr", exc)
+        return False
+    _make_handler(file_handler, redactor)
+    if early is not None:
+        # Записи уже прошли фильтр секретов; повторная очистка ничего не портит.
+        for record in early.records:
+            file_handler.handle(record)
+    root.addHandler(file_handler)
+    return True
 
 
 def set_level(level: str) -> None:

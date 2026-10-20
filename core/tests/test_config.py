@@ -18,6 +18,7 @@ from swyvorn.config import (
     load_secrets,
     load_settings,
     resolve_ipc_token,
+    scrub_secret_environment,
     settings_from_mapping,
 )
 from swyvorn.paths import DataPaths
@@ -158,6 +159,22 @@ def test_env_files_do_not_touch_os_environ(tmp_path: Path, monkeypatch: pytest.M
     env_file.write_text("SWYVORN_TEST_ONLY_VAR=1\n", encoding="utf-8")
     load_environment([env_file], {})
     assert "SWYVORN_TEST_ONLY_VAR" not in os.environ
+
+
+def test_scrub_removes_only_secrets() -> None:
+    environ = {"SWYVORN_IPC_TOKEN": "t" * 20, "ANTHROPIC_API_KEY": "sk-ant-x", "PATH": "/bin"}
+    scrub_secret_environment(environ)
+    assert environ == {"PATH": "/bin"}
+    scrub_secret_environment(environ)  # повторно и без секретов — не ошибка
+    assert environ == {"PATH": "/bin"}
+
+
+def test_scrub_defaults_to_process_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SWYVORN_IPC_TOKEN", "process-token-123")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-process")
+    scrub_secret_environment()
+    assert "SWYVORN_IPC_TOKEN" not in os.environ
+    assert "ANTHROPIC_API_KEY" not in os.environ
 
 
 def test_repo_env_only_in_dev(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

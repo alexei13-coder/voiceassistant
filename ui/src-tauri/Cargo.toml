@@ -26,6 +26,10 @@ tokio = { version = "1.54.0", features = ["sync", "time"] }
 getrandom = "0.4.3"
 log = "0.4.34"
 
+# Аварийная остановка ядра по PID, если его процесс занят зависшей записью в stdin.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.191"
+
 # Установщик скачивают и распаковывают целиком — размер важнее скорости сборки в CI.
 [profile.release]
 codegen-units = 1

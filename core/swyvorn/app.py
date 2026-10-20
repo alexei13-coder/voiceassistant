@@ -1,8 +1,8 @@
 """Сборка ядра и главный цикл.
 
-Порядок запуска: логирование → запрет администратора → настройки и секреты → компоненты →
-WebSocket → канал оболочки → ready. Завершение (SIGINT/SIGTERM, EOF stdin, shutdown) —
-в пределах 2 с.
+Порядок запуска: логирование в stderr → запрет администратора → core.log → настройки
+и секреты (после чтения убираются из окружения процесса) → компоненты → WebSocket → канал
+оболочки → ready. Завершение (SIGINT/SIGTERM, EOF stdin, shutdown) — в пределах 2 с.
 """
 
 from __future__ import annotations
@@ -28,11 +28,12 @@ from .config import (
     load_secrets,
     load_settings,
     resolve_ipc_token,
+    scrub_secret_environment,
 )
 from .confirmation import ConfirmationGate
 from .demo import DemoController, DemoTimings
 from .killswitch import RETURN_TO_IDLE_AFTER, KillSwitch
-from .logging_setup import REDACTOR, set_level, setup_logging
+from .logging_setup import REDACTOR, attach_log_file, set_level, setup_logging
 from .metrics import SAMPLE_INTERVAL, MetricsSampler
 from .paths import DataPaths, resolve_data_dir
 from .platform.elevation import check_elevation
@@ -346,8 +347,14 @@ def run(
     environ = dict(os.environ) if environ is None else environ
     stdout = StdoutChannel(stdout_stream or sys.stdout.buffer)
     paths = DataPaths(resolve_data_dir(options.data_dir, env=environ))
-    setup_logging(level=options.log_level or "INFO", log_file=paths.core_log)
+    # Пока только stderr: процесс администратора не должен ничего записать — ни папку logs/,
+    # ни core.log. Записи до проверки прав попадут в файл, когда он будет подключён.
+    setup_logging(level=options.log_level or "INFO", log_file=None)
     try:
+        log.info("SWYVORN %s, папка данных: %s", __version__, paths.root)
+        if (code := check_elevation(stdout)) is not None:
+            return code
+        attach_log_file(paths.core_log)
         return _run(options, paths, stdout, environ, stdin)
     except KeyboardInterrupt:
         return ExitCode.OK
@@ -364,16 +371,14 @@ def _run(
     environ: Mapping[str, str],
     stdin: ReadChunk | None,
 ) -> int:
-    log.info("SWYVORN %s, папка данных: %s", __version__, paths.root)
-    # До создания каких-либо файлов: процесс администратора не должен ничего записать.
-    if (code := check_elevation(stdout)) is not None:
-        return code
-
     settings = load_settings(paths.settings_file)
     set_level(options.log_level or settings.logging.level)
 
     env = load_environment(env_files(paths, dev=options.dev), environ)
     secrets = load_secrets(env)
+    # Токен и ключ дальше живут только в памяти (env, SecretStr, фильтр логов): дочерние
+    # процессы следующих этапов (PowerShell и т.п.) наследуют os.environ и не должны их получить.
+    scrub_secret_environment()
     if secrets.anthropic_api_key is not None:
         REDACTOR.register(secrets.anthropic_api_key.get_secret_value())
     log.info("Ключ API: %s", "задан" if secrets.anthropic_api_key else "не задан (на этапе 1 не нужен)")

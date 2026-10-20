@@ -126,3 +126,8 @@ jobs:
       - name: Clippy (релизная конфигурация)
         working-directory: ui/src-tauri
         run: cargo clippy --release --all-targets -- -D warnings
+
+      # Модульные тесты оболочки: перезапуск ядра, двойной «Стоп», горячие клавиши, протокол stdio.
+      - name: Тесты
+        working-directory: ui/src-tauri
+        run: cargo test

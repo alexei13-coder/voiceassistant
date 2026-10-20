@@ -7,11 +7,13 @@ import itertools
 from dataclasses import replace
 
 import pytest
-from conftest import FAST, Core, build_core
+from conftest import FAST, Core, Recorder, build_core
 
-from swyvorn.confirmation import ConfirmationGate
+from swyvorn.bus import EventBus
+from swyvorn.confirmation import ConfirmationGate, ConfirmationResult
 from swyvorn.demo import EXECUTED_DETAIL, USER_TRASH, USER_WEATHER, DemoTimings
 from swyvorn.demo_audio import FRAME_RATE
+from swyvorn.protocol import ConfirmationVia, ServerMessage
 from swyvorn.state import AssistantState
 
 S = AssistantState
@@ -166,8 +168,6 @@ async def test_timeout_outcome() -> None:
 
 
 async def test_expired_but_timer_not_fired_is_stale() -> None:
-    from swyvorn.bus import EventBus
-
     now = [1_000_000]
     gate = ConfirmationGate(EventBus(), clock=lambda: now[0])
     pending = gate.open(action_id="a1", title="t", spoken_text="s", details=[], timeout_ms=15_000)
@@ -175,6 +175,53 @@ async def test_expired_but_timer_not_fired_is_stale() -> None:
     now[0] += 15_000
     assert gate.submit("a1", pending.request.nonce, "yes", "button") is False
     gate.resolve_current("cancelled")
+
+
+@pytest.mark.parametrize("via", ["voice", "text"])
+async def test_button_only_rejects_voice_and_text(
+    via: ConfirmationVia, caplog: pytest.LogCaptureFixture
+) -> None:
+    bus: EventBus[ServerMessage] = EventBus()
+    rec = Recorder(bus)
+    gate = ConfirmationGate(bus)
+    pending = gate.open(action_id="a1", title="t", spoken_text="s", details=[], button_only=True)
+    gate.start_countdown(pending)
+    nonce = pending.request.nonce
+
+    # Верные id и nonce, срок не истёк — но «да» голосом или текстом такой запрос не решает.
+    assert gate.submit("a1", nonce, "yes", via) is False
+    assert not pending.resolved
+    assert gate.current is not None
+    assert gate.current.action_id == "a1"
+    assert rec.of_type("confirmation_resolved") == []
+    assert "только кнопкой" in caplog.text
+
+    # Кнопка по-прежнему работает, и запрос закрывается ровно один раз.
+    assert gate.submit("a1", nonce, "yes", "button") is True
+    resolved = await rec.wait_type("confirmation_resolved")
+    assert (resolved.outcome, resolved.via) == ("confirmed", "button")
+    assert pending.result == ConfirmationResult("confirmed", "button")
+    assert len(rec.of_type("confirmation_resolved")) == 1
+
+
+@pytest.mark.parametrize("via", ["voice", "text"])
+async def test_button_only_accepts_voice_and_text_no(via: ConfirmationVia) -> None:
+    # Отказ безопасен: «нет» голосом или текстом отменяет даже запрос «только кнопкой».
+    bus: EventBus[ServerMessage] = EventBus()
+    rec = Recorder(bus)
+    gate = ConfirmationGate(bus)
+    pending = gate.open(action_id="a1", title="t", spoken_text="s", details=[], button_only=True)
+    gate.start_countdown(pending)
+    assert gate.submit("a1", pending.request.nonce, "no", via) is True
+    resolved = await rec.wait_type("confirmation_resolved")
+    assert (resolved.outcome, resolved.via) == ("denied", via)
+
+
+async def test_voice_answer_accepted_when_not_button_only() -> None:
+    gate = ConfirmationGate(EventBus())
+    pending = gate.open(action_id="a1", title="t", spoken_text="s", details=[])
+    assert gate.submit("a1", pending.request.nonce, "yes", "voice") is True
+    assert pending.result == ConfirmationResult("confirmed", "voice")
 
 
 async def test_answer_during_question_cuts_speech(core: Core) -> None:

@@ -1,7 +1,7 @@
 """Подтверждение рискованных действий: одно ожидающее подтверждение, одноразовый nonce.
 
-Решение принимает только ядро. Неверный action_id/nonce, истёкший срок или повтор —
-отказ (stale_confirmation), действие не выполняется.
+Решение принимает только ядро. Неверный action_id/nonce, истёкший срок, повтор или ответ
+не кнопкой на запрос button_only — отказ (stale_confirmation), действие не выполняется.
 """
 
 from __future__ import annotations
@@ -132,7 +132,8 @@ class ConfirmationGate:
     def submit(
         self, action_id: str, nonce: str, decision: Literal["yes", "no"], via: ConfirmationVia
     ) -> bool:
-        """Принять ответ пользователя. False — подтверждение устарело, ничего не произошло."""
+        """Принять ответ пользователя. False — подтверждение устарело или «да» пришло не тем
+        способом (button_only, а ответ не кнопкой); ничего не произошло."""
         pending = self._pending
         if pending is None or pending.resolved:
             return False
@@ -143,6 +144,16 @@ class ConfirmationGate:
         if not (id_ok and nonce_ok):
             return False
         if request.expires_at is not None and self._clock() >= request.expires_at:
+            return False
+        if request.button_only and via != "button" and decision == "yes":
+            # Решает ядро, а не UI: голосового или текстового «да» здесь недостаточно.
+            # «Нет» принимается любым способом — отказ ничего не выполняет.
+            # Запрос остаётся ожидающим — пользователь ещё может нажать кнопку.
+            log.warning(
+                "Подтверждение %s принимается только кнопкой — ответ через %s отклонён",
+                request.action_id,
+                via,
+            )
             return False
         self._resolve(pending, ConfirmationResult("confirmed" if decision == "yes" else "denied", via))
         return True

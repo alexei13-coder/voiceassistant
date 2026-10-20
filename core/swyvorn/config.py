@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import secrets
 import tomllib
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -32,6 +33,8 @@ log = logging.getLogger(__name__)
 
 API_KEY_ENV = "ANTHROPIC_API_KEY"
 IPC_TOKEN_ENV = "SWYVORN_IPC_TOKEN"  # noqa: S105 — имя переменной окружения, а не токен
+# Секреты, которые не должны оставаться в окружении процесса после запуска (scrub_secret_environment).
+SECRET_ENV_NAMES = (IPC_TOKEN_ENV, API_KEY_ENV)
 
 # Текст файла, который создаётся при первом запуске. Должен совпадать с docs/configuration.md.
 DEFAULT_SETTINGS_TOML = """\
@@ -263,6 +266,13 @@ def load_environment(files: Sequence[Path], environ: Mapping[str, str]) -> dict[
         merged.update(read_env_file(path))
     merged.update(environ)
     return merged
+
+
+def scrub_secret_environment(environ: MutableMapping[str, str] = os.environ) -> None:
+    """Убрать токен IPC и ключ API из окружения процесса — их унаследовал бы любой дочерний
+    процесс (на этапе 4 — PowerShell). Вызывать, когда значения уже прочитаны в память."""
+    for name in SECRET_ENV_NAMES:
+        environ.pop(name, None)
 
 
 def load_secrets(env: Mapping[str, str]) -> Secrets:

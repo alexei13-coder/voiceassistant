@@ -19,7 +19,7 @@ from swyvorn.api.control import StdoutChannel
 from swyvorn.app import Application
 from swyvorn.bus import EventBus
 from swyvorn.cli import CliOptions
-from swyvorn.config import Settings, settings_from_mapping
+from swyvorn.config import SECRET_ENV_NAMES, Settings, settings_from_mapping
 from swyvorn.confirmation import ConfirmationGate
 from swyvorn.demo import DemoController, DemoTimings
 from swyvorn.killswitch import KillSwitch
@@ -38,6 +38,14 @@ def _not_elevated(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         swyvorn.app, "check_elevation", lambda stdout: check_elevation(stdout, is_admin=lambda: False)
     )
+
+
+@pytest.fixture(autouse=True)
+def _secrets_not_in_environ(monkeypatch: pytest.MonkeyPatch) -> None:
+    """run() убирает токен и ключ API из os.environ. Через monkeypatch значения из окружения
+    разработчика вернутся после теста, а сами тесты от них не зависят."""
+    for name in SECRET_ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
 
 
 TOKEN = "test-token-0123456789"
