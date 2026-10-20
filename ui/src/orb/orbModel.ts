@@ -302,7 +302,8 @@ export class OrbModel {
     t[C.chase] = look.chase
     t[C.ripple] = look.ripple
     t[C.countdown] = look.countdown
-    t[C.pulse] = inputs.confirmation?.expires_at == null ? 1 : 0
+    // Вне ожидания пульс не трогаем: гаснущая дуга должна выглядеть так же, как в момент ответа.
+    if (inputs.state === 'awaiting_confirmation') t[C.pulse] = inputs.confirmation?.expires_at == null ? 1 : 0
     t[C.turbulence] = look.turbulence
     t[C.breath] = look.breath
     // Отрицательный возраст (часы системы перевели назад, замороженное время лаборатории) — не удержание.
@@ -403,8 +404,13 @@ export class OrbModel {
     const pulseGlow = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(ph[P.pulse]))
     f.countdown = clamp01(s[C.countdown]) * (1 + (pulseGlow - 1) * pulse)
     const c = inputs.confirmation
-    f.countdownFraction =
-      c?.expires_at != null && c.timeout_ms > 0 ? clamp01((c.expires_at - wall) / c.timeout_ms) : 1
+    if (c?.expires_at != null && c.timeout_ms > 0) {
+      f.countdownFraction = clamp01((c.expires_at - wall) / c.timeout_ms)
+    } else if (inputs.state === 'awaiting_confirmation') {
+      f.countdownFraction = 1
+    }
+    // Иначе подтверждение уже закрыто: дуга гаснет с той долей, на которой остановилась,
+    // а не вспыхивает полным кольцом.
 
     f.collapse = collapse
   }

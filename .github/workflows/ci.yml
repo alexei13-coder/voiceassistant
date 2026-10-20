@@ -1,0 +1,128 @@
+# Проверки на каждый push и pull request: ядро (Linux + Windows), интерфейс, оболочка Tauri.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Новый push в ту же ветку отменяет устаревший прогон.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Ядро (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows обязателен: проверка прав администратора и обработка сигналов есть только там.
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v7
+
+      # У setup-uv нет плавающего тега мажорной версии — закреплён последний релиз.
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: core/uv.lock
+
+      # Версия Python берётся из core/.python-version (3.12).
+      - name: Зависимости
+        run: uv sync --locked
+
+      - name: Ruff (линтер)
+        run: uv run ruff check .
+
+      - name: Ruff (форматирование)
+        run: uv run ruff format --check .
+
+      - name: Тесты
+        run: uv run pytest -q
+
+  ui:
+    name: Интерфейс
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ui
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Зависимости
+        run: npm ci
+
+      - name: Проверка типов
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Тесты
+        run: npm test
+
+      - name: Сборка
+        run: npx vite build
+
+  tauri-check:
+    name: Оболочка Tauri
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Системные библиотеки Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            libxdo-dev libssl-dev build-essential
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ui/src-tauri
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      # generate_context! встраивает ui/dist в бинарник: без собранного интерфейса Rust не компилируется.
+      - name: Сборка интерфейса
+        working-directory: ui
+        run: |
+          npm ci
+          npx vite build
+
+      - name: rustfmt
+        working-directory: ui/src-tauri
+        run: cargo fmt --check
+
+      - name: Clippy
+        working-directory: ui/src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Запуск ядра из ресурсов установщика компилируется только в релизе (cfg(not(debug_assertions))).
+      - name: Clippy (релизная конфигурация)
+        working-directory: ui/src-tauri
+        run: cargo clippy --release --all-targets -- -D warnings

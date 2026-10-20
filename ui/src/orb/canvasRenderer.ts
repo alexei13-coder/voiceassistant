@@ -31,6 +31,16 @@ import { layoutFor, type OrbLayout, type OrbRenderer } from './renderer'
 const TAU = Math.PI * 2
 const TOP = Math.PI / 2
 
+/** Шлейф развёртки: (доля оборота за ведущим краем, яркость) — выборка профиля из шейдера. */
+const SWEEP_TAIL: readonly (readonly [number, number])[] = [
+  [0, 0.31],
+  [0.04, 0.135],
+  [0.1, 0.05],
+  [0.3, 0.01],
+  [0.75, 0],
+  [1, 0],
+]
+
 function rgba(c: Rgb, alpha: number): string {
   const a = Math.min(1, Math.max(0, alpha))
   return `rgba(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)}, ${a.toFixed(3)})`
@@ -68,6 +78,43 @@ export function createCanvasRenderer(canvas: HTMLCanvasElement, theme: OrbTheme)
     }
   }
 
+  /**
+   * Луч локатора: яркий ведущий край и шлейф против часовой стрелки (профиль — как в шейдере),
+   * по радиусу мягко гаснет к краям зоны «думаю». Рисуется на пустой холст.
+   */
+  const drawSweep = (angle: number, color: Rgb, alpha: number, lw: number) => {
+    const lead = TOP - angle
+    ctx.globalCompositeOperation = 'source-over'
+    if (typeof ctx.createConicGradient === 'function') {
+      // y перевёрнут, поэтому рост угла конического градиента идёт против часовой — как раз хвост.
+      const cone = ctx.createConicGradient(lead, 0, 0)
+      for (const [at, a] of SWEEP_TAIL) cone.addColorStop(at, rgba(color, a * alpha))
+      ctx.fillStyle = cone
+      ctx.beginPath()
+      ctx.arc(0, 0, THINK_OUTER, 0, TAU)
+      ctx.arc(0, 0, THINK_INNER, 0, TAU, true)
+      ctx.fill()
+    }
+    ctx.beginPath()
+    ctx.moveTo(Math.cos(lead) * THINK_INNER, Math.sin(lead) * THINK_INNER)
+    ctx.lineTo(Math.cos(lead) * THINK_OUTER, Math.sin(lead) * THINK_OUTER)
+    ctx.lineWidth = lw * 1.2
+    ctx.strokeStyle = rgba(color, 0.55 * alpha)
+    ctx.stroke()
+
+    const span = THINK_OUTER - THINK_INNER
+    const fade = ctx.createRadialGradient(0, 0, THINK_INNER, 0, 0, THINK_OUTER)
+    fade.addColorStop(0, 'rgba(0, 0, 0, 1)')
+    fade.addColorStop(0.12 / span, 'rgba(0, 0, 0, 0)')
+    fade.addColorStop(1 - 0.16 / span, 'rgba(0, 0, 0, 0)')
+    fade.addColorStop(1, 'rgba(0, 0, 0, 1)')
+    ctx.globalCompositeOperation = 'destination-out'
+    ctx.fillStyle = fade
+    ctx.beginPath()
+    ctx.arc(0, 0, THINK_OUTER + lw, 0, TAU)
+    ctx.fill()
+  }
+
   return {
     kind: 'canvas2d',
     resize(viewport) {
@@ -79,13 +126,17 @@ export function createCanvasRenderer(canvas: HTMLCanvasElement, theme: OrbTheme)
       const collapse = f.collapse
       const scale = layout.scale * (1 + (COLLAPSED_SCALE - 1) * collapse) * (1 + 0.03 * f.flash)
       ctx.setTransform(scale, 0, 0, -scale, layout.centerX, layout.centerY)
-      ctx.globalCompositeOperation = 'lighter'
       ctx.lineCap = 'butt'
 
       const lw = (layout.line * layout.scale) / scale
       let color: Rgb = mixRgb(f.color, red, Math.min(1, f.flash * 0.75))
       color = mixRgb(color, grey, collapse * 0.85)
       const rings = f.energy * (1 - 0.55 * collapse)
+
+      // Развёртка «думаю» — первой, пока холст пуст: её радиальное затухание вырезается
+      // через destination-out и не задевает остальные элементы.
+      if (f.sweep > 0.001) drawSweep(f.sweepAngle, color, f.sweep * rings, lw)
+      ctx.globalCompositeOperation = 'lighter'
 
       // Плазма: радиальный градиент с горячим центром.
       const core = f.coreRadius
@@ -181,20 +232,7 @@ export function createCanvasRenderer(canvas: HTMLCanvasElement, theme: OrbTheme)
       ctx.strokeStyle = rgba(color, 0.4 * rings)
       ctx.stroke()
 
-      // Думаю: развёртка и частицы.
-      if (f.sweep > 0.001 && typeof ctx.createConicGradient === 'function') {
-        // Ведущий край — там же, где в шейдере; хвост тянется против часовой стрелки.
-        const cone = ctx.createConicGradient(TOP - f.sweepAngle, 0, 0)
-        cone.addColorStop(0, rgba(color, 0.2 * f.sweep * rings))
-        cone.addColorStop(0.04, rgba(color, 0.08 * f.sweep * rings))
-        cone.addColorStop(0.3, rgba(color, 0))
-        cone.addColorStop(1, rgba(color, 0))
-        ctx.fillStyle = cone
-        ctx.beginPath()
-        ctx.arc(0, 0, THINK_OUTER, 0, TAU)
-        ctx.arc(0, 0, THINK_INNER, 0, TAU, true)
-        ctx.fill()
-      }
+      // Думаю: частицы (развёртка нарисована первым проходом).
       if (f.particles > 0.001) {
         ctx.fillStyle = rgba(mixRgb(color, [1, 1, 1], 0.4), f.particles * rings)
         ctx.beginPath()

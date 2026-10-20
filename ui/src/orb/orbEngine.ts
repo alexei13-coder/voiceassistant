@@ -63,7 +63,7 @@ export function startOrbEngine(canvas: HTMLCanvasElement, options: OrbEngineOpti
           },
           onRestored: () => {
             lost = false
-            applySize()
+            // Размер подложки контекст пережил — достаточно перезапустить цикл.
             sync()
           },
           onFailed: () => {
@@ -90,6 +90,9 @@ export function startOrbEngine(canvas: HTMLCanvasElement, options: OrbEngineOpti
 
   let cssWidth = 0
   let cssHeight = 0
+  /** Точный размер в px устройства (device-pixel-content-box), если браузер его сообщает. */
+  let deviceWidth = 0
+  let deviceHeight = 0
   let raf = 0
   let running = false
   let lastFrameAt = 0
@@ -160,14 +163,30 @@ export function startOrbEngine(canvas: HTMLCanvasElement, options: OrbEngineOpti
     }
   }
 
-  function applySize(): void {
-    const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO)
+  function backingViewport(): OrbViewport {
+    const dpr = window.devicePixelRatio || 1
+    const ratio = Math.min(dpr, MAX_PIXEL_RATIO)
     const fit = Math.min(1, MAX_BACKING_SIDE / Math.max(1, cssWidth * ratio, cssHeight * ratio))
-    const viewport: OrbViewport = {
+    // На масштабе 125 %/150 % (обычном для Windows) округление CSS-размера сдвигает сетку на полпикселя
+    // и тонкие линии мылятся; точный размер в px устройства даёт отображение пиксель в пиксель.
+    // Ему верим, только если он согласуется с devicePixelRatio с точностью до привязки к пикселям:
+    // эмуляция масштаба в DevTools сообщает размер без масштаба — подложка вышла бы мутной.
+    const exact =
+      deviceWidth > 0 &&
+      Math.abs(deviceWidth - cssWidth * dpr) < 2 &&
+      Math.abs(deviceHeight - cssHeight * dpr) < 2
+    if (exact && ratio === dpr && fit === 1) {
+      return { width: deviceWidth, height: deviceHeight, pixelRatio: deviceWidth / cssWidth }
+    }
+    return {
       width: Math.max(1, Math.round(cssWidth * ratio * fit)),
       height: Math.max(1, Math.round(cssHeight * ratio * fit)),
       pixelRatio: ratio * fit,
     }
+  }
+
+  function applySize(): void {
+    const viewport = backingViewport()
     if (canvas.width !== viewport.width) canvas.width = viewport.width
     if (canvas.height !== viewport.height) canvas.height = viewport.height
     renderer.resize(viewport)
@@ -176,15 +195,24 @@ export function startOrbEngine(canvas: HTMLCanvasElement, options: OrbEngineOpti
   }
 
   const resizeObserver = new ResizeObserver((entries) => {
-    const box = entries[entries.length - 1].contentRect
-    cssWidth = box.width
-    cssHeight = box.height
+    const entry = entries[entries.length - 1]
+    cssWidth = entry.contentRect.width
+    cssHeight = entry.contentRect.height
+    const device = entry.devicePixelContentBoxSize?.[0]
+    deviceWidth = device ? Math.round(device.inlineSize) : 0
+    deviceHeight = device ? Math.round(device.blockSize) : 0
     if (cssWidth > 0 && cssHeight > 0) applySize()
     sync()
   })
-  resizeObserver.observe(canvas)
+  try {
+    resizeObserver.observe(canvas, { box: 'device-pixel-content-box' })
+  } catch {
+    // Старый движок без device-pixel-content-box: обходимся CSS-размером.
+    resizeObserver.observe(canvas)
+  }
 
-  // Окно перетащили на монитор с другим масштабом — ResizeObserver этого не видит.
+  // Окно перетащили на монитор с другим масштабом: без device-pixel-content-box ResizeObserver
+  // этого не видит, а при ограничении масштаба сверху меняется и толщина линий.
   let ratioQuery: MediaQueryList | null = null
   const onRatioChange = () => {
     watchPixelRatio()

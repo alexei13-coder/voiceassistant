@@ -7,6 +7,8 @@
 
 Оболочка запускает ядро как дочерний процесс в Job Object, передаёт `JARVIS_IPC_TOKEN` и `PYTHONUTF8=1`, читает `ready` из stdout. Протокол — в [protocol.md](protocol.md).
 
+Собранное PyInstaller ядро игнорирует переменные `PYTHON*`, поэтому режим UTF-8 зашит в сборку флагом `--python-option "X utf8"` (см. `scripts/build-core.ps1`). `PYTHONUTF8=1` нужен только при запуске из исходников.
+
 ## Структура репозитория
 
 ```

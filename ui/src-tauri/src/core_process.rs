@@ -29,6 +29,10 @@ const SHUTDOWN_GRACE: Duration = Duration::from_secs(2);
 /// при сбое до настройки логирования ядра (например, в сборке PyInstaller) больше их нигде нет.
 const STDERR_TAIL_LINES: usize = 20;
 const GAVE_UP_MESSAGE: &str = "Ядро постоянно падает — смотрите logs/core.log";
+/// Код выхода ядра «ошибка аргументов» (docs/configuration.md). argparse печатает причину
+/// только в stderr, а его хвост попадает в лог оболочки.
+const BAD_ARGUMENTS_EXIT_CODE: i32 = 2;
+const BAD_ARGUMENTS_MESSAGE: &str = "Ядро не приняло параметры запуска — смотрите logs/shell.log";
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -57,7 +61,11 @@ pub struct CoreConnection {
 enum Readiness {
     Pending,
     Ready(u16),
-    Failed(String),
+    /// Ядро остановлено и само не поднимется (`fatal` или `crashed` после всех попыток).
+    Failed {
+        status: CoreStatus,
+        message: String,
+    },
 }
 
 #[derive(Debug, Default)]
@@ -131,7 +139,12 @@ impl CoreManager {
                 port,
                 token: self.token.as_str().to_owned(),
             }),
-            Readiness::Failed(message) => Err(message),
+            Readiness::Failed { status, message } => {
+                // Событие могло уйти до того, как UI подписался (например, `fatal` при старте),
+                // поэтому каждый отказ повторяет его: так UI покажет причину, а не «нет связи».
+                self.emit(status, Some(message.clone()));
+                Err(message)
+            }
             Readiness::Pending => Err(TIMEOUT_MESSAGE.into()),
         }
     }
@@ -392,12 +405,16 @@ impl CoreManager {
         for line in &stderr_tail {
             log::warn!(target: CORE_TARGET, "stderr: {line}");
         }
+        if exit.as_ref().and_then(|payload| payload.code) == Some(BAD_ARGUMENTS_EXIT_CODE) {
+            // С теми же аргументами ядро откажет снова — перезапуск только скрыл бы причину.
+            log::error!("{BAD_ARGUMENTS_MESSAGE}");
+            self.fail(BAD_ARGUMENTS_MESSAGE.into());
+            return;
+        }
         let delay = lock(&self.state).restarts.next_delay(Instant::now());
         let Some(delay) = delay else {
             log::error!("{GAVE_UP_MESSAGE}");
-            self.readiness
-                .send_replace(Readiness::Failed(GAVE_UP_MESSAGE.into()));
-            self.emit(CoreStatus::Crashed, Some(GAVE_UP_MESSAGE.into()));
+            self.settle_failed(CoreStatus::Crashed, GAVE_UP_MESSAGE.into());
             return;
         };
         self.readiness.send_replace(Readiness::Pending);
@@ -433,9 +450,16 @@ impl CoreManager {
     }
 
     fn fail(&self, message: String) {
-        self.readiness
-            .send_replace(Readiness::Failed(message.clone()));
-        self.emit(CoreStatus::Fatal, Some(message));
+        self.settle_failed(CoreStatus::Fatal, message);
+    }
+
+    /// Ядро остаётся остановленным до аварийного стопа (он запускает его заново).
+    fn settle_failed(&self, status: CoreStatus, message: String) {
+        self.readiness.send_replace(Readiness::Failed {
+            status,
+            message: message.clone(),
+        });
+        self.emit(status, Some(message));
     }
 
     fn emit(&self, status: CoreStatus, message: Option<String>) {

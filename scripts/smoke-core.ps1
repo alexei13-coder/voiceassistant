@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Проверка собранного ядра: запускается, сообщает ready, отвечает по WebSocket, не пишет токен в лог.
@@ -194,12 +194,6 @@ namespace JarvisSmoke
 }
 '@
 
-function Test-Elevated {
-    if ($env:OS -ne 'Windows_NT') { return $false }
-    $principal = New-Object Security.Principal.WindowsPrincipal ([Security.Principal.WindowsIdentity]::GetCurrent())
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
-
 function Grant-CurrentUserAccess {
     param([string] $Path, [string] $Rights)
     # Явное разрешение для SID пользователя: в урезанном маркере права группы «Администраторы» не действуют.
@@ -319,9 +313,6 @@ $token = [guid]::NewGuid().ToString('N')
 $limited = Test-Elevated
 
 Write-Step "Проверка ядра: $exe"
-Invoke-Native $exe @('--help') | Out-Null
-Write-Host '--help: код 0'
-
 $null = New-Item -ItemType Directory -Path $dataDir -Force
 if ($limited) {
     Write-Host 'Сеанс с правами администратора: ядро запускается с маркером обычного пользователя (SAFER)'
@@ -330,6 +321,8 @@ if ($limited) {
 }
 
 # Те же переменные, что передаёт оболочка; после проверки возвращаются прежние значения.
+# PYTHONUTF8 собранное ядро игнорирует: режим UTF-8 включён при сборке (--python-option "X utf8"),
+# и --help ниже это проверяет — справка русская, а stdout в канале на раннере был бы в cp1252.
 $overrides = @{ JARVIS_IPC_TOKEN = $token; JARVIS_DATA_DIR = $dataDir; PYTHONUTF8 = '1' }
 $saved = @{}
 foreach ($name in $overrides.Keys) {
@@ -340,6 +333,10 @@ foreach ($name in $overrides.Keys) {
 $process = $null
 $passed = $false
 try {
+    # --help разбирается до проверки прав, поэтому работает и в сеансе администратора.
+    Invoke-Native $exe @('--help') | Out-Null
+    Write-Host '--help: код 0'
+
     $started = [Diagnostics.Stopwatch]::StartNew()
     $process = Start-Core -Exe $exe -WorkingDirectory $CoreDir -StdoutPath $stdoutPath -StderrPath $stderrPath `
         -Limited $limited

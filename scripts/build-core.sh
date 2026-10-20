@@ -14,7 +14,8 @@ cd "$repo_root/core"
 # --locked: сборка строго по зафиксированному uv.lock, как в CI.
 uv sync --locked
 # spec-файл и промежуточные файлы — в core/build/ (в .gitignore), чтобы не засорять репозиторий.
-uv run --locked pyinstaller --noconfirm --clean --onedir --console \
+# «X utf8» — режим UTF-8 Python: собранный интерпретатор игнорирует PYTHONUTF8 (подробнее — в build-core.ps1).
+uv run --locked pyinstaller --noconfirm --clean --onedir --console --python-option "X utf8" \
   --name jarvis-core --contents-directory _internal \
   --distpath dist --workpath build/pyinstaller --specpath build \
   jarvis_entry.py

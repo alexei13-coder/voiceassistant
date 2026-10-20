@@ -115,6 +115,22 @@ describe('модель ядра', () => {
     expect(f.countdown).toBe(1)
   })
 
+  it('после ответа дуга отсчёта гаснет с прежней долей, без скачка к полному кольцу', () => {
+    const model = new OrbModel(THEME)
+    const counting = inputs('awaiting_confirmation', {
+      confirmation: { expires_at: WALL + 6_000, timeout_ms: 15_000 },
+    })
+    model.update(counting, SILENCE, 0, WALL)
+    expect(model.frame.countdownFraction).toBeCloseTo(0.4, 6)
+
+    // Ответ «да»: подтверждение закрыто, ядро ушло выполнять.
+    const t = advance(model, inputs('executing'), 0, 0.1)
+    expect(model.frame.countdown).toBeGreaterThan(0.2)
+    expect(model.frame.countdownFraction).toBeCloseTo(0.4, 6)
+    advance(model, inputs('executing'), t, 1)
+    expect(model.frame.countdown).toBeLessThan(0.01)
+  })
+
   it('30 к/с разрешены только в устоявшемся ожидании', () => {
     const model = new OrbModel(THEME)
     model.update(inputs('listening'), SILENCE, 0, WALL)

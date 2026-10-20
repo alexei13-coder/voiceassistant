@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from websockets.asyncio.client import ClientConnection, connect
 
+import jarvis.app
 from jarvis.api.control import StdoutChannel
 from jarvis.app import Application
 from jarvis.bus import EventBus
@@ -22,9 +23,22 @@ from jarvis.config import Settings, settings_from_mapping
 from jarvis.confirmation import ConfirmationGate
 from jarvis.demo import DemoController, DemoTimings
 from jarvis.killswitch import KillSwitch
+from jarvis.platform.elevation import check_elevation
 from jarvis.protocol import ServerMessage, StateMessage
 from jarvis.session import Session
 from jarvis.state import StateMachine
+
+
+@pytest.fixture(autouse=True)
+def _not_elevated(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Раннеры GitHub для Windows работают от администратора — без этого run() сразу вернёт 3.
+
+    Тесты, проверяющие сам запрет, ставят свой monkeypatch поверх этого.
+    """
+    monkeypatch.setattr(
+        jarvis.app, "check_elevation", lambda stdout: check_elevation(stdout, is_admin=lambda: False)
+    )
+
 
 TOKEN = "test-token-0123456789"
 DEV_ORIGIN = "http://localhost:1420"

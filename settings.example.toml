@@ -1,0 +1,24 @@
+[assistant]
+name = "Джарвис"              # имя ассистента
+address_form = "сэр"          # как обращаться к пользователю; спросим при первом запуске (этап 2)
+
+[llm]
+model = "claude-opus-5-5"
+effort = "low"                # low | medium | high
+
+[hotkeys]
+activate = "Ctrl+Alt+J"       # нажатие — вызов, удержание — говорить, пока держите
+stop = "Ctrl+Alt+Escape"      # остановить всё
+stop_fallback = "Ctrl+Alt+Backspace"  # если основное сочетание занято
+mute = "Ctrl+Alt+M"           # не слушать / слушать
+repeat = "Ctrl+Alt+R"         # повторить последний ответ
+screen = "Ctrl+Alt+S"         # посмотреть на экран
+
+[ui]
+reduced_motion = false        # меньше анимаций для слабых ПК
+
+[demo]
+enabled = true                # этап 1: демонстрационный сценарий вместо «мозга»
+
+[logging]
+level = "INFO"                # DEBUG | INFO | WARNING | ERROR
