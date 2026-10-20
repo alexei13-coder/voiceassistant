@@ -46,6 +46,8 @@
 - Неизвестный `type` от клиента → `error` с `code: "unknown_type"`.
 - Невалидный JSON или неверные поля → `error` с `code: "bad_message"`.
 - Команда, недоступная в текущем режиме (например `demo` без демо-режима) → `error` с `code: "not_allowed"`.
+- Неожиданная ошибка в обработчике команды → `error` с `code: "internal"`; соединение остаётся открытым.
+- Клиент, который не успевает принимать события, отключается с кодом `1013` (сначала отбрасываются устаревшие `audio_level` и `metrics`). Он должен переподключиться и получит свежий `hello`.
 
 ### 1.3 Состояния ассистента
 
@@ -160,7 +162,7 @@ interface Hotkeys {
 | `confirmation_countdown` | `action_id`, `expires_at` | вопрос договорён, пошёл отсчёт 15 с |
 | `confirmation_resolved` | `action_id`, `outcome: 'confirmed' \| 'denied' \| 'timeout' \| 'cancelled' \| 'stopped' \| 'superseded'`, `via: 'voice' \| 'button' \| 'text' \| null` | подтверждение закрыто |
 | `muted` | `muted: bool` | микрофон выключен/включён |
-| `notice` | `level: 'info' \| 'warning' \| 'error'`, `text`, `code: string \| null` | всплывающее уведомление |
+| `notice` | `level: 'info' \| 'warning' \| 'error'`, `text`, `code: string \| null` | всплывающее уведомление. Коды: `muted`, `demo_voice`, `hotkey_unavailable`, `not_available_yet`. Уведомления о незарегистрированных горячих клавишах повторяются каждому новому клиенту сразу после `hello` |
 | `stopped` | `source: 'button' \| 'hotkey' \| 'voice' \| 'tray' \| 'emergency'` | сработал «Стоп» |
 | `pong` | — | ответ на `ping` |
 | `error` | `code`, `message` | ошибка протокола |
@@ -172,7 +174,7 @@ interface Hotkeys {
 | `auth` | `token` | только первым сообщением |
 | `send_text` | `text` (1..4000 символов после `strip`) | новая реплика пользователя |
 | `confirm` | `action_id`, `nonce`, `decision: 'yes' \| 'no'` | принять/отклонить. Неверный `action_id` или `nonce`, истёкший срок, повтор → `error` с `code: "stale_confirmation"`, ничего не выполняется |
-| `stop` | `source: 'button'` | немедленный «Стоп» (§3) |
+| `stop` | `source: 'button'` (необязательно, по умолчанию `button`) | немедленный «Стоп» (§3) |
 | `mic` | `action: 'toggle' \| 'ptt_down' \| 'ptt_up'` | кнопка микрофона (на этапе 1 — демо-переход в `listening`) |
 | `mute` | `muted: bool` | выключить/включить микрофон |
 | `ping` | — | `pong` |
@@ -191,7 +193,7 @@ interface Hotkeys {
 | `type` | Поля | Смысл |
 |---|---|---|
 | `ready` | `port`, `protocol: 1`, `hotkeys: Hotkeys` | WebSocket слушает; оболочка регистрирует горячие клавиши и отдаёт порт UI |
-| `show_window` | — | показать и сфокусировать окно |
+| `show_window` | — | показать и сфокусировать окно (ядро шлёт его, в частности, на `hotkey/activate`) |
 | `fatal` | `message` (по-русски) | ядро сейчас завершится с ошибкой; оболочка показывает сообщение |
 
 ### 2.2 Оболочка → ядро (stdin)
@@ -260,6 +262,8 @@ interface Hotkeys {
 10. `speaking` («Готово» / «Отменено») → `idle` → сценарий повторяется.
 
 Во всех демо-записях `demo: true`, **никакие реальные действия не выполняются**.
+
+Кнопка микрофона и `hotkey/activate` на этапе 1 имитируют прослушивание: `listening` ~4 с (или до повторного нажатия / `ptt_up`), затем `thinking`, информационное уведомление и `idle`. Если микрофон выключен (`muted`), показывается только предупреждение, а сценарий ждёт в `idle` перед каждым шагом прослушивания.
 
 `send_text` в демо-режиме: реплика пользователя → `thinking` 1,2 с → потоковый ответ «Это демонстрационный режим: мозг подключим на этапе 2. Вы написали: „…“».
 

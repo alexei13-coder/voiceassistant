@@ -21,9 +21,12 @@ core/                      Python 3.12 (uv)
     bus.py                 шина событий (asyncio)
     state.py               машина состояний ассистента
     protocol.py            модели сообщений (pydantic) по docs/protocol.md
+    session.py             история чата, журнал действий, mute, уведомления (снимок для hello)
+    confirmation.py        единственное ожидающее подтверждение: nonce, тайм-аут
     killswitch.py          «Стоп»: отмена задач текущего хода
     metrics.py             CPU/RAM/сеть/время (psutil), 1 Гц
     demo.py                демо-сценарий этапа 1
+    demo_audio.py          синтетические уровни «речи» для демо
     api/ws_server.py       WebSocket для UI (127.0.0.1, Origin, токен)
     api/control.py         stdio-канал оболочки (JSON Lines)
     platform/elevation.py  запрет запуска от администратора
