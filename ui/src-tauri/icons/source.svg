@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Исходник значка «Джарвис»: тёмная плашка, кольца и светящееся ядро. PNG всех размеров — через `tauri icon`. -->
+  <defs>
+    <radialGradient id="plate" cx="50%" cy="46%" r="68%">
+      <stop offset="0" stop-color="#0f2233"/>
+      <stop offset="0.55" stop-color="#08121d"/>
+      <stop offset="1" stop-color="#04070c"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5ff3ff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#5ff3ff" stop-opacity="0.08"/>
+    </linearGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.28" stop-color="#d4fbff"/>
+      <stop offset="0.6" stop-color="#3ee8ff"/>
+      <stop offset="1" stop-color="#0a8fb0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#3ee8ff" stop-opacity="0.45"/>
+      <stop offset="0.55" stop-color="#1bb8d8" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#1bb8d8" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="56" y="56" width="912" height="912" rx="208" fill="url(#plate)"/>
+  <rect x="62" y="62" width="900" height="900" rx="202" fill="none" stroke="url(#rim)" stroke-width="6"/>
+
+  <circle cx="512" cy="512" r="300" fill="url(#halo)"/>
+
+  <g fill="none" stroke="#3ee8ff" filter="url(#glow)">
+    <!-- внешнее тонкое кольцо -->
+    <circle cx="512" cy="512" r="352" stroke-width="10" stroke-opacity="0.45"/>
+    <!-- сегментированная дуга: 15 делений по 14° через 6°, разрыв 66° справа сверху.
+         pathLength — в градусах; узор начинается с середины разрыва, чтобы стык контура не попал в деление. -->
+    <circle cx="512" cy="512" r="290" stroke-width="44" pathLength="360"
+            stroke-dasharray="0 33 14 6 14 6 14 6 14 6 14 6 14 6 14 6 14 6 14 6 14 6 14 6 14 6 14 6 14 6 14 33"
+            transform="rotate(-45 512 512)" stroke-opacity="0.95"/>
+    <!-- внутреннее кольцо -->
+    <circle cx="512" cy="512" r="200" stroke-width="16" stroke-opacity="0.85"/>
+  </g>
+
+  <circle cx="512" cy="512" r="150" fill="url(#core)" filter="url(#glow)"/>
+  <circle cx="512" cy="512" r="58" fill="#ffffff" fill-opacity="0.92"/>
+</svg>

@@ -1,0 +1,255 @@
+/* Базовые стили HUD. Цвета — только из tokens.css. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* HUD — интерфейс, а не документ: выделять можно только текст диалога и команды */
+  user-select: none;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 1px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--line-strong);
+  color: var(--text);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* ---------- каркас ---------- */
+
+.hud {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--bottombar-h);
+  height: 100vh;
+  min-width: 1100px;
+  min-height: 700px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 46% 52% at 50% 46%, var(--line-faint), transparent 72%),
+    radial-gradient(ellipse 120% 95% at 50% 50%, transparent 52%, var(--bg-deep) 100%),
+    var(--bg);
+}
+
+/* Тонкая треугольно-шестигранная сетка, гаснущая к краям */
+.hud::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg, var(--line-faint) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(60deg, var(--line-faint) 0 1px, transparent 1px 34px),
+    repeating-linear-gradient(120deg, var(--line-faint) 0 1px, transparent 1px 34px);
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 48%, black 10%, transparent 78%);
+  opacity: 0.55;
+}
+
+/* Сканирующие строки — едва заметная фактура экрана */
+.hud::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, transparent 0 2px, var(--line-faint) 2px 3px);
+  opacity: 0.18;
+}
+
+.hud__main {
+  display: grid;
+  grid-template-columns: var(--side-w) minmax(0, 1fr) var(--side-w);
+  gap: var(--gap);
+  padding: var(--gap);
+  min-height: 0;
+}
+
+.hud__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-height: 0;
+  min-width: 0;
+}
+
+@media (max-width: 1279px) {
+  .hud {
+    --side-w: 300px;
+  }
+}
+
+/* ---------- общие элементы ---------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.chip .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.tag-demo {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 5px;
+  border: 1px solid var(--amber);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--amber);
+  white-space: nowrap;
+}
+
+/* Точка состояния с мягким пульсом; цвет — через --state-color */
+.state-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--state-color, var(--cyan));
+  box-shadow: 0 0 8px var(--state-color, var(--cyan));
+}
+
+.state-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--state-color, var(--cyan));
+  animation: dot-pulse 1.8s var(--ease) infinite;
+}
+
+@keyframes dot-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ---------- меньше движения ---------- */
+
+.hud[data-reduced-motion] *,
+.hud[data-reduced-motion] *::before,
+.hud[data-reduced-motion] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

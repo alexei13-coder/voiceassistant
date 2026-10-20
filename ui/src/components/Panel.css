@@ -1,0 +1,105 @@
+/* Панель: срез углов (справа сверху, слева снизу) + яркие уголки-скобы на двух других углах. */
+
+.panel {
+  --notch: 14px;
+  --bracket: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: linear-gradient(180deg, var(--panel-hover), var(--panel) 120px);
+  border: 1px solid var(--line);
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--notch)) 0,
+    100% var(--notch),
+    100% 100%,
+    var(--notch) 100%,
+    0 calc(100% - var(--notch))
+  );
+}
+
+/* Уголки-скобы */
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--cyan), var(--cyan)) top left / var(--bracket) 1px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) top left / 1px var(--bracket) no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) bottom right / var(--bracket) 1px no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) bottom right / 1px var(--bracket) no-repeat;
+  opacity: 0.75;
+}
+
+/* Диагонали на срезанных углах — продолжение рамки */
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    linear-gradient(
+        to bottom left,
+        transparent calc(50% - 1px),
+        var(--line-strong) 50%,
+        transparent calc(50% + 1px)
+      )
+      top right / var(--notch) var(--notch) no-repeat,
+    linear-gradient(
+        to bottom left,
+        transparent calc(50% - 1px),
+        var(--line-strong) 50%,
+        transparent calc(50% + 1px)
+      )
+      bottom left / var(--notch) var(--notch) no-repeat;
+}
+
+.panel__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 calc(var(--notch) + 6px) 0 14px;
+  border-bottom: 1px solid var(--line-faint);
+}
+
+.panel__index {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--cyan);
+  opacity: 0.7;
+  letter-spacing: 0.06em;
+}
+
+.panel__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cyan-soft);
+  white-space: nowrap;
+}
+
+.panel__rule {
+  flex: 1 1 auto;
+  min-width: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--line-strong), transparent);
+  opacity: 0.6;
+}
+
+.panel__aside {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  white-space: nowrap;
+}

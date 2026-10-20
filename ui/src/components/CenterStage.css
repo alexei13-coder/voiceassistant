@@ -1,0 +1,109 @@
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.stage__orb {
+  flex: 1 1 auto;
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+  container-type: size;
+}
+
+/* Квадрат, вписанный в доступную область */
+.stage__orb-box {
+  position: relative;
+  width: min(100cqw, 100cqh);
+  height: min(100cqw, 100cqh);
+}
+
+.stage__orb-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Видоискатель: четыре уголка по краям квадрата ядра */
+.stage__frame {
+  --c: var(--line-strong);
+  --s: 22px;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background:
+    linear-gradient(var(--c), var(--c)) top left / var(--s) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) top left / 1px var(--s) no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / var(--s) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) top right / 1px var(--s) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / var(--s) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom left / 1px var(--s) no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / var(--s) 1px no-repeat,
+    linear-gradient(var(--c), var(--c)) bottom right / 1px var(--s) no-repeat;
+}
+
+.stage__caption {
+  flex: none;
+  /* снизу — место под свёрнутый пульт демо, чтобы подсказка его не задевала */
+  padding: 6px 16px 34px;
+  text-align: center;
+  animation: fade-up var(--dur-slow) var(--ease) both;
+}
+
+.stage__state {
+  /* letter-spacing добавляет хвост справа — компенсируем отступом слева */
+  padding-left: 0.42em;
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: 0.42em;
+  color: var(--state-color);
+  text-shadow: 0 0 18px var(--state-color);
+  white-space: nowrap;
+}
+
+.stage__hint {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+}
+
+/* Тонкая линейка между подписью и подсказкой */
+.stage__state::after {
+  content: '';
+  display: block;
+  width: 180px;
+  height: 1px;
+  margin: 12px auto 0;
+  /* компенсируем padding-left заголовка, чтобы линия стояла по центру */
+  transform: translateX(-0.21em);
+  background: linear-gradient(90deg, transparent, var(--state-color), transparent);
+  opacity: 0.55;
+}
+
+.stage--confirming .stage__frame {
+  opacity: 0.3;
+}
+
+@media (max-width: 1279px), (max-height: 820px) {
+  .stage__caption {
+    padding: 4px 12px 32px;
+  }
+
+  .stage__state {
+    font-size: 24px;
+    letter-spacing: 0.34em;
+    padding-left: 0.34em;
+  }
+
+  .stage__hint {
+    font-size: 13px;
+  }
+}

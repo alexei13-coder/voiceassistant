@@ -1,0 +1,121 @@
+/* ---------- уведомления ---------- */
+
+.toasts {
+  position: absolute;
+  top: calc(var(--topbar-h) + var(--gap));
+  right: var(--gap);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(340px, calc(var(--side-w) - 16px));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.toast {
+  --tone: var(--cyan);
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 20px;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 10px 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--tone);
+  background: var(--panel-solid);
+  box-shadow: 0 8px 24px -8px var(--bg-deep);
+  pointer-events: auto;
+  animation: toast-in var(--dur-slow) var(--ease) both;
+}
+
+.toast--warning {
+  --tone: var(--amber);
+}
+
+.toast--error {
+  --tone: var(--red);
+}
+
+.toast__icon {
+  width: 16px;
+  height: 16px;
+  color: var(--tone);
+}
+
+.toast__text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+.toast__close {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-faint);
+}
+
+.toast__close:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.toast__close .icon {
+  width: 12px;
+  height: 12px;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------- полоса связи ---------- */
+
+.banner {
+  --tone: var(--amber);
+  position: absolute;
+  top: calc(var(--topbar-h) + 8px);
+  left: 50%;
+  z-index: 9;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(640px, calc(100% - 2 * var(--side-w) - 4 * var(--gap)));
+  padding: 7px 16px;
+  border: 1px solid var(--tone);
+  background: var(--panel-solid);
+  box-shadow: 0 0 24px -6px var(--tone);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--tone);
+  /* translate, а не transform: анимация появления не сбивает центрирование */
+  translate: -50% 0;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  animation: fade-up var(--dur) var(--ease) both;
+}
+
+.banner--error {
+  --tone: var(--red);
+}
+
+.banner .icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}

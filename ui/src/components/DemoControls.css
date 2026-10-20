@@ -1,0 +1,98 @@
+.demo {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.demo__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-faint);
+  opacity: 0.7;
+  transition:
+    opacity var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.demo__toggle:hover,
+.demo--open .demo__toggle {
+  opacity: 1;
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+.demo__chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform var(--dur) var(--ease);
+}
+
+.demo--open .demo__chevron {
+  transform: rotate(-90deg);
+}
+
+.demo__panel {
+  width: 300px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--amber);
+  animation: fade-up var(--dur) var(--ease) both;
+}
+
+.demo__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.demo__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+
+.demo__btn {
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: transparent;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.demo__btn:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.demo__btn--active {
+  border-color: var(--line-strong);
+  color: var(--cyan-soft);
+}
