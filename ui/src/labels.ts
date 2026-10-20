@@ -38,11 +38,24 @@ export const RISK_LABELS: Record<Risk, string> = {
   forbidden: 'запрещённое действие',
 }
 
+/** Короткое слово о связи с ядром для верхней панели. */
 export const CONNECTION_LABELS: Record<ConnectionStatus, string> = {
-  connecting: 'ЯДРО: ПОДКЛЮЧЕНИЕ',
-  connected: 'ЯДРО: В СЕТИ',
-  disconnected: 'НЕТ СВЯЗИ',
-  unauthorized: 'ОШИБКА ДОСТУПА',
+  connecting: 'подключение',
+  connected: 'в сети',
+  disconnected: 'нет связи',
+  unauthorized: 'нет доступа',
+}
+
+/** Слово состояния под ядром — строчными, спокойно. */
+export const STATE_WORDS: Record<AssistantState, string> = {
+  idle: 'ожидание',
+  listening: 'слушаю',
+  thinking: 'думаю',
+  speaking: 'говорю',
+  awaiting_confirmation: 'жду подтверждения',
+  executing: 'выполняю',
+  error: 'ошибка',
+  stopped: 'остановлено',
 }
 
 /** CSS-переменная цвета состояния из tokens.css. */
@@ -57,10 +70,11 @@ export const STATE_COLOR_VARS: Record<AssistantState, string> = {
   stopped: 'var(--state-stopped)',
 }
 
+/** Подпись автора реплики в диалоге. */
 export function roleLabel(role: ChatMessage['role'], assistantName: string | undefined): string {
-  if (role === 'user') return 'ВЫ'
-  if (role === 'system') return 'СИСТЕМА'
-  return (assistantName || DEFAULT_ASSISTANT_NAME).toUpperCase()
+  if (role === 'user') return 'вы'
+  if (role === 'system') return 'система'
+  return assistantName || DEFAULT_ASSISTANT_NAME
 }
 
 export interface HintContext {

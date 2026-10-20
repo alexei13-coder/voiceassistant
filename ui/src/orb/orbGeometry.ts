@@ -1,67 +1,38 @@
 // Геометрия ядра в долях R — общая для WebGL- и Canvas-отрисовки, чтобы обе выглядели одинаково.
 // Шейдер получает эти числа как константы GLSL (см. glslConstants), второго источника правды нет.
+// Минималистичная композиция: плазма → одно тонкое кольцо (на нём же дуги «думаю», отсчёт и прогресс)
+// → редкие радиальные столбики уровня звука.
 
-/** Половина стороны квадрата холста в долях R. Всё, что дальше ~0,68R, мягко гасится виньеткой. */
-export const HALF_SIDE_IN_R = 0.8
+/** Половина стороны квадрата холста в долях R. Всё, что дальше ~0,6R, мягко гасится к краю. */
+export const HALF_SIDE_IN_R = 0.72
 
 export const CORE_RADIUS = 0.2
 
-export const RING_RADIUS = 0.3
-export const RING_TICKS = 72
+/** Единственное кольцо вокруг плазмы. */
+export const RING_RADIUS = 0.33
 
-export const ARC_RADIUS_A = 0.355
-export const ARC_RADIUS_B = 0.374
+/** Длина дуг на кольце (рад): основная и вторая, напротив неё («думаю»). */
+export const ARC_LENGTH = 0.95
+export const ARC_PAIR_LENGTH = 0.5
 
-/** Дуга: начало и длина (рад), шаг штриховки (рад, 0 — сплошная). */
-export type ArcSpec = readonly [start: number, length: number, dash: number]
-
-/** Толстые сегменты — вращаются в одну сторону… */
-export const ARCS_A: readonly ArcSpec[] = [
-  [0.15, 1.35, 0],
-  [1.95, 0.55, 0],
-  [3.05, 2.2, 0.075],
-]
-
-/** …тонкие — навстречу. */
-export const ARCS_B: readonly ArcSpec[] = [
-  [0.9, 0.95, 0],
-  [4.0, 1.5, 0],
-]
-
-/** Доля шага штриховки, занятая штрихом. */
-export const ARC_DASH_DUTY = 0.62
-
-export const BAR_INNER = 0.425
+export const BAR_INNER = 0.39
 export const BAR_OUTER = 0.5
-export const BAR_COUNT = 80
-/** Длина столбика от звука и от синтетической «волны» (в долях R). */
-export const BAR_AUDIO_SPAN = 0.068
-export const BAR_WAVE_SPAN = 0.036
+export const BAR_COUNT = 60
+/** Длина столбика в покое, от звука и от синтетической «волны» (в долях R). */
+export const BAR_BASE = 0.008
+export const BAR_AUDIO_SPAN = 0.085
+export const BAR_WAVE_SPAN = 0.03
 
-export const COUNTDOWN_RADIUS = 0.53
-
-export const DIAL_RADIUS = 0.58
-export const DIAL_TICKS = 120
-/** Номера делений лимба, с которых начинаются «глифы» — группы точек-меток. */
-export const DIAL_GLYPHS: readonly number[] = [9, 41, 68, 101]
-export const DIAL_GLYPH_LENGTH = 6
-
-/** Шаг волн «говорю» (в долях R). */
-export const RIPPLE_STEP = 0.11
+/** Одна волна «говорю» расходится от края плазмы до этого радиуса и гаснет. */
+export const RIPPLE_END = 0.58
 
 /** Масштаб конструкции в полном «сжатии» после «Стоп». */
 export const COLLAPSED_SCALE = 0.6
 
-/** Зона развёртки и частиц «думаю». */
-export const THINK_INNER = 0.215
-export const THINK_OUTER = 0.575
-
-export const PARTICLE_COUNT = 24
-
 const TAU = Math.PI * 2
 
 /** Хэш 0..1 без синуса — тот же, что hash11 в шейдере (Dave Hoskins). */
-export function hash11(value: number): number {
+function hash11(value: number): number {
   let p = fract(value * 0.1031)
   p *= p + 33.33
   p *= p + p
@@ -84,48 +55,33 @@ export function barShape(index: number, phase: readonly number[]): { audio: numb
   return { audio: 0.15 + 0.85 * (wave * 0.4 + jitter * 0.6) ** 1.4, wave }
 }
 
-function glslFloat(value: number): string {
-  return Number.isInteger(value) ? `${value}.0` : String(value)
+/**
+ * Яркость точки дуги-«кометы» по её длине: t = 0 — кончик хвоста, 1 — голова.
+ * Хвост растворяется плавно, поэтому у дуги нет резкого обрыва; голова — полная яркость.
+ */
+export function cometFade(t: number): number {
+  const x = Math.min(1, Math.max(0, t))
+  return x * (2 - x)
 }
 
-function glslArcs(name: string, arcs: readonly ArcSpec[]): string {
-  const items = arcs.map((a) => `vec3(${a.map(glslFloat).join(', ')})`).join(', ')
-  return `const vec3 ${name}[${arcs.length}] = vec3[${arcs.length}](${items});`
+function glslFloat(value: number): string {
+  return Number.isInteger(value) ? `${value}.0` : String(value)
 }
 
 /** Константы геометрии для вставки в шейдер. */
 export function glslConstants(): string {
   const scalars: Record<string, number> = {
-    CORE_R: CORE_RADIUS,
     RING_R: RING_RADIUS,
-    RING_TICKS,
-    ARC_R_A: ARC_RADIUS_A,
-    ARC_R_B: ARC_RADIUS_B,
-    ARC_DUTY: ARC_DASH_DUTY,
     BAR_IN: BAR_INNER,
     BAR_OUT: BAR_OUTER,
     BAR_N: BAR_COUNT,
     BAR_AUDIO: BAR_AUDIO_SPAN,
     BAR_WAVE: BAR_WAVE_SPAN,
-    COUNT_R: COUNTDOWN_RADIUS,
-    DIAL_R: DIAL_RADIUS,
-    DIAL_N: DIAL_TICKS,
-    GLYPH_LEN: DIAL_GLYPH_LENGTH,
-    THINK_IN: THINK_INNER,
-    THINK_OUT: THINK_OUTER,
+    RIPPLE_END,
     HALF_SIDE: HALF_SIDE_IN_R,
-    RIPPLE_STEP,
     COLLAPSED: COLLAPSED_SCALE,
   }
-  const lines = Object.entries(scalars).map(([k, v]) => `const float ${k} = ${glslFloat(v)};`)
-  lines.push(`#define PARTICLES ${PARTICLE_COUNT}`)
-  lines.push(`#define ARCS_A_N ${ARCS_A.length}`)
-  lines.push(`#define ARCS_B_N ${ARCS_B.length}`)
-  lines.push(`#define GLYPHS_N ${DIAL_GLYPHS.length}`)
-  lines.push(glslArcs('ARCS_A', ARCS_A))
-  lines.push(glslArcs('ARCS_B', ARCS_B))
-  lines.push(
-    `const float GLYPHS[${DIAL_GLYPHS.length}] = float[${DIAL_GLYPHS.length}](${DIAL_GLYPHS.map(glslFloat).join(', ')});`,
-  )
-  return lines.join('\n')
+  return Object.entries(scalars)
+    .map(([k, v]) => `const float ${k} = ${glslFloat(v)};`)
+    .join('\n')
 }

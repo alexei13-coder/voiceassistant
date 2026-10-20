@@ -1,7 +1,7 @@
-// Нижняя панель: микрофон и тишина слева, поле команды по центру, «СТОП» справа.
-// Сетка колонок совпадает с основной, чтобы элементы стояли под своими панелями.
+// Нижняя панель: одно поле команды по центру (микрофон внутри справа, тишина рядом) и «Стоп» справа.
+// Сетка колонок совпадает с основной, чтобы поле стояло точно под ядром.
 
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { sendCommand } from '../core/connection'
 import { DEFAULT_ACTIVATE_HOTKEY } from '../labels'
 import type { ClientMessage } from '../protocol'
@@ -27,14 +27,14 @@ function MicButton({ disabled }: { disabled: boolean }) {
   return (
     <button
       type="button"
-      className={listening ? 'ctl ctl--live' : 'ctl'}
+      className={listening ? 'icon-btn cmd__mic cmd__mic--live' : 'icon-btn cmd__mic'}
       aria-pressed={listening}
+      aria-label={listening ? 'Слушаю — нажмите, чтобы закончить' : 'Говорить'}
       disabled={disabled}
       onClick={() => send({ type: 'mic', action: 'toggle' })}
       title={`Говорить (${hotkey}; удерживайте — говорить, пока держите)`}
     >
       <Icon name="mic" />
-      <span className="ctl__label">{listening ? 'Слушаю' : 'Говорить'}</span>
     </button>
   )
 }
@@ -42,38 +42,41 @@ function MicButton({ disabled }: { disabled: boolean }) {
 function MuteButton({ disabled }: { disabled: boolean }) {
   const muted = useSwyvorn((s) => s.muted)
   const hotkey = useSwyvorn((s) => s.info?.hotkeys.mute)
+  const label = muted ? 'Включить микрофон' : 'Выключить микрофон'
   return (
     <button
       type="button"
-      className={muted ? 'ctl ctl--muted' : 'ctl'}
+      className={muted ? 'icon-btn mute mute--on' : 'icon-btn mute'}
       aria-pressed={muted}
+      aria-label={label}
       disabled={disabled}
       onClick={() => send({ type: 'mute', muted: !muted })}
-      title={`${muted ? 'Включить микрофон' : 'Выключить микрофон'}${hotkey ? ` (${hotkey})` : ''}`}
+      title={`${label}${hotkey ? ` (${hotkey})` : ''}`}
     >
       <Icon name="micOff" />
-      <span className="ctl__label">{muted ? 'Вкл. микрофон' : 'Выкл. микрофон'}</span>
     </button>
   )
 }
 
 function CommandInput({ disabled }: { disabled: boolean }) {
   const [text, setText] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   const canSend = !disabled && text.trim().length > 0
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const trimmed = text.trim()
     if (!trimmed) return
-    if (send({ type: 'send_text', text: trimmed })) setText('')
+    if (!send({ type: 'send_text', text: trimmed })) return
+    setText('')
+    // Кнопка «Отправить» исчезает вместе с текстом — фокус возвращаем в поле, а не теряем.
+    inputRef.current?.focus()
   }
 
   return (
     <form className={disabled ? 'cmd cmd--disabled' : 'cmd'} onSubmit={submit}>
-      <span className="cmd__prompt" aria-hidden="true">
-        ›
-      </span>
       <input
+        ref={inputRef}
         className="cmd__input"
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -85,13 +88,16 @@ function CommandInput({ disabled }: { disabled: boolean }) {
         spellCheck={false}
       />
       {text.length >= COUNTER_FROM && (
-        <span className="cmd__count mono">
+        <span className={text.length >= MAX_TEXT ? 'cmd__count cmd__count--full mono' : 'cmd__count mono'}>
           {text.length}/{MAX_TEXT}
         </span>
       )}
-      <button type="submit" className="cmd__send" disabled={!canSend} aria-label="Отправить" title="Отправить (Enter)">
-        <Icon name="send" />
-      </button>
+      {canSend && (
+        <button type="submit" className="cmd__send" aria-label="Отправить" title="Отправить (Enter)">
+          <Icon name="send" />
+        </button>
+      )}
+      <MicButton disabled={disabled} />
     </form>
   )
 }
@@ -100,12 +106,15 @@ export function BottomBar() {
   const connected = useSwyvorn((s) => s.connection === 'connected')
   return (
     <footer className="bottombar">
-      <div className="bottombar__controls">
-        <MicButton disabled={!connected} />
+      <div className="bottombar__center">
+        {/* Пустой элемент той же ширины, что кнопка тишины, — поле остаётся точно по центру */}
+        <span className="bottombar__balance" aria-hidden="true" />
+        <CommandInput disabled={!connected} />
         <MuteButton disabled={!connected} />
       </div>
-      <CommandInput disabled={!connected} />
-      <StopButton />
+      <div className="bottombar__right">
+        <StopButton />
+      </div>
     </footer>
   )
 }

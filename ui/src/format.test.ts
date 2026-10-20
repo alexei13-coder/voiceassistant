@@ -9,7 +9,6 @@ import {
   formatMemory,
   formatPercent,
   formatRate,
-  formatShortDate,
   formatTimeShort,
   formatUptime,
 } from './format'
@@ -23,10 +22,8 @@ describe('время и даты', () => {
     expect(formatTimeShort(MONDAY.getTime())).toBe('07:05')
   })
 
-  it('короткая и полная русская дата', () => {
-    expect(formatShortDate(MONDAY)).toBe('пн, 19 окт')
+  it('полная русская дата', () => {
     expect(formatFullDate(MONDAY)).toBe('понедельник, 19 октября 2026')
-    expect(formatShortDate(new Date(2026, 4, 3))).toBe('вс, 3 мая')
     expect(formatFullDate(new Date(2026, 4, 3))).toBe('воскресенье, 3 мая 2026')
   })
 })

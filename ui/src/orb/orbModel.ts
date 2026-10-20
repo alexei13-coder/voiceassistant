@@ -3,7 +3,7 @@
 // Все параметры состояния идут через пружины, поэтому смена состояния никогда не «щёлкает».
 
 import type { AssistantState } from '../protocol'
-import { CORE_RADIUS, hash11, PARTICLE_COUNT, THINK_INNER, THINK_OUTER } from './orbGeometry'
+import { ARC_LENGTH, ARC_PAIR_LENGTH, BAR_BASE, CORE_RADIUS } from './orbGeometry'
 import { STATE_LOOKS } from './orbLook'
 import type { OrbTheme } from './orbTheme'
 import { followEnvelope, SpringBank, springOmega } from './spring'
@@ -36,33 +36,31 @@ export interface OrbFrame {
   turbulence: number
   /** Фазы вращения плазмы, рад (периодичны — точность не теряется за дни работы). */
   spin: [number, number, number]
-  ringAngle: number
-  arcAngleA: number
-  arcAngleB: number
-  dialAngle: number
+  /** Яркость кольца 0..1. */
+  ring: number
+  /** Дуги на кольце: сила основной и второй (напротив), угол головы по часовой от «12», длины (рад). */
+  arc: number
+  arcPair: number
+  arcAngle: number
+  arcLength: number
+  arcPairLength: number
+  /** Видимость столбиков 0..1. */
+  bars: number
   barBase: number
   barAudio: number
   barWave: number
-  barPhase: [number, number, number, number]
-  sweep: number
-  sweepAngle: number
-  particles: number
-  /** PARTICLE_COUNT × (x, y, радиус, яркость) в долях R. */
-  particleData: Float32Array
+  barPhase: [number, number, number]
   chase: number
   chaseHead: number
   chaseLength: number
-  /** Волны «говорю»: сила (уже с уровнем звука) и фаза. */
+  /** Волна «говорю»: сила (уже с уровнем звука) и путь от плазмы наружу 0..1. */
   ripple: number
-  ripplePhase: number
-  /** Яркость кольца отсчёта с учётом пульса. */
+  rippleProgress: number
+  /** Яркость дуги отсчёта с учётом пульса. */
   countdown: number
   /** Оставшаяся доля времени подтверждения 0..1. */
   countdownFraction: number
   flash: number
-  /** Ударная волна вспышки ошибки: радиус-прогресс 0..1 и яркость. */
-  shock: number
-  shockAlpha: number
   collapse: number
 }
 
@@ -72,46 +70,43 @@ const C = {
   g: 1,
   b: 2,
   energy: 3,
-  ringSpeed: 4,
-  arcSpeed: 5,
-  barGain: 6,
-  barWave: 7,
-  mic: 8,
-  tts: 9,
-  sweep: 10,
-  particles: 11,
-  chase: 12,
-  countdown: 13,
-  pulse: 14,
-  turbulence: 15,
-  breath: 16,
-  collapse: 17,
-  motion: 18,
-  ripple: 19,
+  ring: 4,
+  arc: 5,
+  arcPair: 6,
+  arcSpeed: 7,
+  barGain: 8,
+  barWave: 9,
+  bars: 10,
+  mic: 11,
+  tts: 12,
+  chase: 13,
+  countdown: 14,
+  pulse: 15,
+  turbulence: 16,
+  breath: 17,
+  collapse: 18,
+  motion: 19,
+  ripple: 20,
 } as const
-const CHANNELS = 20
+const CHANNELS = 21
 
 // Фазы, которые накапливаются по времени (скорость — из сглаженных параметров).
 const P = {
-  ring: 0,
-  arcA: 1,
-  arcB: 2,
-  dial: 3,
-  sweep: 4,
-  spinA: 5,
-  spinB: 6,
-  spinC: 7,
-  bar0: 8,
-  bar1: 9,
-  bar2: 10,
-  bar3: 11,
-  chase: 12,
-  chaseLength: 13,
-  breath: 14,
-  pulse: 15,
-  ripple: 16,
+  arc: 0,
+  arcLength: 1,
+  spinA: 2,
+  spinB: 3,
+  spinC: 4,
+  bar0: 5,
+  bar1: 6,
+  bar2: 7,
+  chase: 8,
+  chaseLength: 9,
+  breath: 10,
+  pulse: 11,
+  ripple: 12,
 } as const
-const PHASES = 17
+const PHASES = 13
 
 const SETTLE = springOmega(0.33)
 const SETTLE_COLOR = springOmega(0.38)
@@ -152,27 +147,6 @@ function clamp01(x: number): number {
   return x < 0 ? 0 : x > 1 ? 1 : x
 }
 
-interface ParticleSeed {
-  radius: number
-  speed: number
-  phase: number
-  size: number
-  twinkle: number
-}
-
-// Частицы «думаю»: разные орбиты, скорости и направления — детерминированно из хэша.
-const PARTICLE_SEEDS: readonly ParticleSeed[] = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-  const h = (k: number) => hash11(i * 7.31 + k * 13.7 + 1)
-  const direction = i % 3 === 0 ? -1 : 1
-  return {
-    radius: THINK_INNER + 0.03 + (THINK_OUTER - THINK_INNER - 0.05) * h(1),
-    speed: direction * (0.22 + 0.7 * h(2)),
-    phase: TAU * h(3),
-    size: 0.0028 + 0.0032 * h(4),
-    twinkle: 1.5 + 3 * h(5),
-  }
-})
-
 export class OrbModel {
   readonly frame: OrbFrame = {
     color: [0, 0, 0],
@@ -182,28 +156,25 @@ export class OrbModel {
     coreBoost: 1,
     turbulence: 0,
     spin: [0, 0, 0],
-    ringAngle: 0,
-    arcAngleA: 0,
-    arcAngleB: 0,
-    dialAngle: 0,
-    barBase: 0.006,
+    ring: 0,
+    arc: 0,
+    arcPair: 0,
+    arcAngle: 0,
+    arcLength: ARC_LENGTH,
+    arcPairLength: ARC_PAIR_LENGTH,
+    bars: 0,
+    barBase: BAR_BASE,
     barAudio: 0,
     barWave: 0,
-    barPhase: [0, 0, 0, 0],
-    sweep: 0,
-    sweepAngle: 0,
-    particles: 0,
-    particleData: new Float32Array(PARTICLE_COUNT * 4),
+    barPhase: [0, 0, 0],
     chase: 0,
     chaseHead: 0,
     chaseLength: 0,
     ripple: 0,
-    ripplePhase: 0,
+    rippleProgress: 0,
     countdown: 0,
     countdownFraction: 1,
     flash: 0,
-    shock: 1,
-    shockAlpha: 0,
     collapse: 0,
   }
 
@@ -212,7 +183,6 @@ export class OrbModel {
   private readonly omega = new Float64Array(CHANNELS).fill(SETTLE)
   private readonly phase = new Float64Array(PHASES)
   private readonly rate = new Float64Array(PHASES)
-  private particleClock = 0
   private envMic = 0
   private envTts = 0
   private lastTime = 0
@@ -291,14 +261,15 @@ export class OrbModel {
     for (let i = 0; i < 3; i++) t[C.r + i] = base[i] + (tint[i] - base[i]) * tintAmount
 
     t[C.energy] = look.energy
-    t[C.ringSpeed] = look.ringSpeed
+    t[C.ring] = look.ring
+    t[C.arc] = look.arc
+    t[C.arcPair] = look.arcPair
     t[C.arcSpeed] = look.arcSpeed
     t[C.barGain] = look.barGain
     t[C.barWave] = look.barWave
+    t[C.bars] = look.bars
     t[C.mic] = look.mic
     t[C.tts] = look.tts
-    t[C.sweep] = look.sweep
-    t[C.particles] = look.particles
     t[C.chase] = look.chase
     t[C.ripple] = look.ripple
     t[C.countdown] = look.countdown
@@ -325,27 +296,23 @@ export class OrbModel {
     const turb = s[C.turbulence]
     const wave = s[C.barWave]
     const r = this.rate
-    r[P.ring] = s[C.ringSpeed]
-    r[P.arcA] = s[C.arcSpeed]
-    r[P.arcB] = -0.62 * s[C.arcSpeed]
-    r[P.dial] = 0.012
-    r[P.sweep] = 2.1
-    r[P.spinA] = 0.14 + 0.3 * turb + 0.5 * level
-    r[P.spinB] = 0.09 + 0.18 * turb
-    r[P.spinC] = -(0.08 + 0.3 * turb + 0.4 * level)
+    r[P.arc] = s[C.arcSpeed]
+    r[P.arcLength] = 1.1
+    r[P.spinA] = 0.12 + 0.22 * turb + 0.35 * level
+    r[P.spinB] = 0.07 + 0.14 * turb
+    r[P.spinC] = -(0.06 + 0.22 * turb + 0.3 * level)
     r[P.bar0] = 0.5 + 1.2 * wave + 1.4 * level
     r[P.bar1] = 0.35 + 0.9 * wave + 1.0 * level
     r[P.bar2] = 1.2 + 2.5 * wave + 7 * level
-    r[P.bar3] = 0.7
     r[P.chase] = 2.3
     r[P.chaseLength] = 1.6
     r[P.breath] = TAU / 5.6
     r[P.pulse] = 2.6
-    r[P.ripple] = 3.2 + 4 * level
+    // Одна волна за ~2,2 с; при громкой речи чуть чаще.
+    r[P.ripple] = (TAU / 2.2) * (1 + 0.4 * level)
     for (let i = 0; i < PHASES; i++) {
       this.phase[i] = wrap(jump ? r[i] * m * time : this.phase[i] + r[i] * m * dt)
     }
-    this.particleClock = jump ? m * time : this.particleClock + m * dt
   }
 
   private writeFrame(inputs: OrbInputs, level: number, time: number, wall: number): void {
@@ -365,43 +332,41 @@ export class OrbModel {
     f.turbulence = clamp01(s[C.turbulence])
 
     const breath = Math.sin(ph[P.breath]) * s[C.breath]
-    f.coreRadius = CORE_RADIUS * (1 + 0.04 * breath + 0.24 * level * audioScale) * (1 - 0.3 * collapse)
+    f.coreRadius = CORE_RADIUS * (1 + 0.035 * breath + 0.2 * level * audioScale) * (1 - 0.3 * collapse)
     const age = time - this.flashStart
-    const flashScale = inputs.reducedMotion ? 0.5 : 1
-    f.flash = flashEnvelope(age) * flashScale
-    f.shock = 1 - Math.exp(-Math.max(0, age) / 0.3)
-    f.shockAlpha = inputs.reducedMotion ? 0 : f.flash * (1 - f.shock)
-    f.coreBoost = f.energy * (1 + 0.9 * level) * (1 + 0.6 * f.flash)
+    f.flash = flashEnvelope(age) * (inputs.reducedMotion ? 0.5 : 1)
+    f.coreBoost = f.energy * (1 + 0.6 * level) * (1 + 0.35 * f.flash)
 
     f.spin[0] = ph[P.spinA]
     f.spin[1] = ph[P.spinB]
     f.spin[2] = ph[P.spinC]
-    f.ringAngle = ph[P.ring]
-    f.arcAngleA = ph[P.arcA]
-    f.arcAngleB = ph[P.arcB]
-    f.dialAngle = ph[P.dial]
 
-    f.barBase = 0.006
+    f.ring = clamp01(s[C.ring])
+    f.arc = clamp01(s[C.arc])
+    f.arcPair = clamp01(s[C.arcPair])
+    f.arcAngle = ph[P.arc]
+    // Дуги едва заметно «дышат» длиной — вращение не выглядит механическим.
+    const stretch = 1 + 0.22 * Math.sin(ph[P.arcLength])
+    f.arcLength = ARC_LENGTH * stretch
+    f.arcPairLength = ARC_PAIR_LENGTH * (2 - stretch)
+
+    f.bars = clamp01(s[C.bars])
+    f.barBase = BAR_BASE
     f.barAudio = clamp01(s[C.barGain]) * level * audioScale
     f.barWave = clamp01(s[C.barWave])
     f.barPhase[0] = ph[P.bar0]
     f.barPhase[1] = ph[P.bar1]
     f.barPhase[2] = ph[P.bar2]
-    f.barPhase[3] = ph[P.bar3]
-
-    f.sweep = clamp01(s[C.sweep])
-    f.sweepAngle = ph[P.sweep]
-    f.particles = clamp01(s[C.particles])
-    this.writeParticles()
 
     f.chase = clamp01(s[C.chase])
     f.chaseHead = ph[P.chase]
-    f.chaseLength = TAU * (0.14 + 0.16 * (0.5 + 0.5 * Math.sin(ph[P.chaseLength])))
-    f.ripple = clamp01(s[C.ripple]) * (0.25 + 0.75 * level)
-    f.ripplePhase = ph[P.ripple]
+    f.chaseLength = TAU * (0.12 + 0.14 * (0.5 + 0.5 * Math.sin(ph[P.chaseLength])))
+    f.ripple = clamp01(s[C.ripple]) * (0.35 + 0.65 * level)
+    f.rippleProgress = ph[P.ripple] / TAU
 
     const pulse = clamp01(s[C.pulse])
-    const pulseGlow = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(ph[P.pulse]))
+    // Пока отсчёт не начат, полное кольцо спокойно «дышит», а не мигает.
+    const pulseGlow = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(ph[P.pulse]))
     f.countdown = clamp01(s[C.countdown]) * (1 + (pulseGlow - 1) * pulse)
     const c = inputs.confirmation
     if (c?.expires_at != null && c.timeout_ms > 0) {
@@ -413,19 +378,5 @@ export class OrbModel {
     // а не вспыхивает полным кольцом.
 
     f.collapse = collapse
-  }
-
-  private writeParticles(): void {
-    const out = this.frame.particleData
-    const clock = this.particleClock
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const p = PARTICLE_SEEDS[i]
-      const angle = p.phase + clock * p.speed
-      const radius = p.radius + 0.008 * Math.sin(clock * 0.7 + p.phase)
-      out[i * 4] = radius * Math.cos(angle)
-      out[i * 4 + 1] = radius * Math.sin(angle)
-      out[i * 4 + 2] = p.size
-      out[i * 4 + 3] = 0.55 + 0.45 * Math.sin(clock * p.twinkle + p.phase * 3)
-    }
   }
 }

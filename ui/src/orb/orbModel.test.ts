@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AssistantState } from '../protocol'
-import { CORE_RADIUS, PARTICLE_COUNT } from './orbGeometry'
+import { CORE_RADIUS } from './orbGeometry'
 import { type OrbInputs, OrbModel, STOP_HOLD_MS } from './orbModel'
 import type { OrbTheme } from './orbTheme'
 
@@ -39,9 +39,26 @@ describe('модель ядра', () => {
     const model = new OrbModel(THEME)
     const f = model.update(inputs('thinking'), SILENCE, 0, WALL)
     expect(f.color).toEqual([0.3, 0.6, 1])
-    expect(f.sweep).toBe(1)
-    expect(f.particles).toBe(1)
-    expect(f.particleData).toHaveLength(PARTICLE_COUNT * 4)
+    expect(f.arc).toBe(1)
+    expect(f.arcPair).toBeGreaterThan(0)
+  })
+
+  it('минимализм: в покое столбики почти не видны, при голосе — видны ясно', () => {
+    const idle = new OrbModel(THEME).update(inputs('idle'), SILENCE, 0, WALL)
+    expect(idle.bars).toBeLessThan(0.2)
+    expect(idle.arcPair).toBe(0)
+    expect(idle.chase).toBe(0)
+    expect(idle.ripple).toBe(0)
+    for (const state of ['listening', 'speaking'] as const) {
+      expect(new OrbModel(THEME).update(inputs(state), SILENCE, 0, WALL).bars).toBe(1)
+    }
+  })
+
+  it('под активной дугой (думаю, отсчёт, выполняю) само кольцо приглушено', () => {
+    const ringOf = (state: AssistantState) => new OrbModel(THEME).update(inputs(state), SILENCE, 0, WALL).ring
+    for (const state of ['thinking', 'awaiting_confirmation', 'executing'] as const) {
+      expect(ringOf(state)).toBeLessThan(ringOf('idle'))
+    }
   })
 
   it('смена состояния плавная: цвет не «щёлкает», а доезжает за ~0,4 с', () => {
@@ -67,6 +84,19 @@ describe('модель ядра', () => {
     speaking.update(inputs('speaking'), SILENCE, 0, WALL)
     advance(speaking, inputs('speaking'), 0, 0.5, { mic: 0.8, tts: 0 })
     expect(speaking.frame.level).toBeLessThan(0.01)
+  })
+
+  it('волна «говорю» идёт от плазмы наружу и сильнее при громкой речи', () => {
+    const quiet = new OrbModel(THEME).update(inputs('speaking'), SILENCE, 1, WALL, true)
+    const loud = new OrbModel(THEME).update(inputs('speaking'), { mic: 0, tts: 1 }, 1, WALL, true)
+    expect(quiet.ripple).toBeGreaterThan(0)
+    expect(loud.ripple).toBeGreaterThan(quiet.ripple)
+
+    const model = new OrbModel(THEME)
+    model.update(inputs('speaking'), SILENCE, 0, WALL)
+    const before = model.frame.rippleProgress
+    advance(model, inputs('speaking'), 0, 0.5)
+    expect(model.frame.rippleProgress).toBeGreaterThan(before)
   })
 
   it('вспышка ошибки — только на переход в ошибку, не при монтировании в ней', () => {
@@ -148,17 +178,21 @@ describe('модель ядра', () => {
     advance(a, inputs('executing'), 0, 1)
     const fa = a.update(inputs('thinking'), SILENCE, 6, WALL, true)
     const fb = b.update(inputs('thinking'), SILENCE, 6, WALL, true)
-    expect(fa.ringAngle).toBeCloseTo(fb.ringAngle, 9)
-    expect(fa.sweepAngle).toBeCloseTo(fb.sweepAngle, 9)
-    expect(Array.from(fa.particleData)).toEqual(Array.from(fb.particleData))
+    expect(fa.arcAngle).toBeCloseTo(fb.arcAngle, 9)
+    expect(fa.arcLength).toBeCloseTo(fb.arcLength, 9)
+    expect(fa.chaseHead).toBeCloseTo(fb.chaseHead, 9)
+    expect(fa.coreRadius).toBeCloseTo(fb.coreRadius, 9)
+    expect(fa.spin).toEqual(fb.spin)
   })
 
   it('фазы остаются в [0, 2π) после долгой работы', () => {
     const model = new OrbModel(THEME)
     const f = model.update(inputs('thinking'), SILENCE, 86_400 * 7, WALL, true)
-    for (const v of [f.ringAngle, f.arcAngleA, f.arcAngleB, f.sweepAngle, ...f.spin, ...f.barPhase]) {
+    for (const v of [f.arcAngle, f.chaseHead, ...f.spin, ...f.barPhase]) {
       expect(v).toBeGreaterThanOrEqual(0)
       expect(v).toBeLessThan(Math.PI * 2)
     }
+    expect(f.rippleProgress).toBeGreaterThanOrEqual(0)
+    expect(f.rippleProgress).toBeLessThan(1)
   })
 })

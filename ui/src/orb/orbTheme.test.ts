@@ -18,16 +18,18 @@ describe('цвета ядра', () => {
 
   it('без DOM берёт запасные цвета токенов', () => {
     const theme = getOrbTheme()
-    expect(theme.states.awaiting_confirmation).toEqual(parseCssColor('#ffb547'))
-    expect(theme.states.error).toEqual(parseCssColor('#ff4d5e'))
+    expect(theme.states.awaiting_confirmation).toEqual(parseCssColor('#f5b14c'))
+    expect(theme.states.error).toEqual(parseCssColor('#ff5a67'))
+    expect(theme.states.idle).toEqual(parseCssColor('#5fd4e6'))
   })
 })
 
 describe('константы шейдера', () => {
   it('целые числа записаны как float GLSL', () => {
     const glsl = glslConstants()
-    expect(glsl).toContain('const float BAR_N = 80.0;')
-    expect(glsl).toContain('#define PARTICLES 24')
-    expect(glsl).toMatch(/const vec3 ARCS_A\[3\] = vec3\[3\]\(vec3\(0\.15, 1\.35, 0\.0\)/)
+    expect(glsl).toContain('const float BAR_N = 60.0;')
+    expect(glsl).toContain('const float RING_R = 0.33;')
+    // Каждая строка — объявление константы: никакого мусора в исходник шейдера не попадает.
+    for (const line of glsl.split('\n')) expect(line).toMatch(/^const float [A-Z_]+ = -?\d+\.\d+;$/)
   })
 })

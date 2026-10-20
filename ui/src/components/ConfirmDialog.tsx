@@ -18,7 +18,10 @@ const LANGUAGE_LABELS: Record<NonNullable<ConfirmationRequest['command_language'
   powershell: 'PowerShell',
 }
 
-/** Обратный отсчёт без перерисовок React: полоса и секунды обновляются в requestAnimationFrame. */
+/**
+ * Обратный отсчёт без перерисовок React: линия и секунды обновляются в requestAnimationFrame.
+ * Линия позиционируется абсолютно — по верхнему краю карточки, секунды стоят в подвале.
+ */
 function Countdown({ expiresAt, timeoutMs }: { expiresAt: number | null; timeoutMs: number }) {
   const barRef = useRef<HTMLDivElement>(null)
   const secondsRef = useRef<HTMLSpanElement>(null)
@@ -45,16 +48,18 @@ function Countdown({ expiresAt, timeoutMs }: { expiresAt: number | null; timeout
   if (expiresAt === null) {
     return (
       <div className="countdown countdown--pending">
+        <div className="countdown__line" aria-hidden="true" />
         <span className="countdown__speaking">Озвучиваю вопрос…</span>
       </div>
     )
   }
   return (
-    <div className="countdown" role="timer" aria-label="Осталось времени на ответ">
-      <div className="countdown__track">
+    <div className="countdown">
+      <div className="countdown__line" aria-hidden="true">
         <div className="countdown__bar" ref={barRef} />
       </div>
-      <span className="countdown__seconds mono" ref={secondsRef} />
+      <span className="countdown__label">Осталось</span>
+      <span className="countdown__seconds mono" ref={secondsRef} role="timer" aria-label="Осталось времени на ответ" />
     </div>
   )
 }
@@ -131,25 +136,19 @@ function ConfirmCard({ request }: { request: ConfirmationRequest }) {
   return (
     <div className="confirm" role="alertdialog" aria-modal="true" aria-labelledby={titleId} ref={dialogRef} onKeyDown={trapTab}>
       <header className="confirm__head">
-        <Icon name="warning" className="confirm__icon" />
         <span className="confirm__kicker">Требуется подтверждение</span>
-        {request.demo && (
-          <span className="confirm__demo">
-            <span className="tag-demo">ДЕМО</span>
-            ничего не будет выполнено
-          </span>
-        )}
+        {request.demo && <span className="confirm__demo">демо — ничего не будет выполнено</span>}
       </header>
 
       <h3 className="confirm__title" id={titleId}>
         {request.title}
       </h3>
 
-      <div className="confirm__body">
+      <div className="confirm__body fade-scroll">
         {request.details.length > 0 && (
           <section className="confirm__section">
             <h4 className="confirm__label">
-              Объекты <span className="mono">· {request.details.length}</span>
+              Объекты <span className="mono">{request.details.length}</span>
             </h4>
             <ul className="confirm__details" tabIndex={0}>
               {request.details.map((d, i) => (
@@ -196,10 +195,7 @@ function ConfirmCard({ request }: { request: ConfirmationRequest }) {
         <div className="confirm__status">
           <Countdown expiresAt={request.expires_at} timeoutMs={request.timeout_ms} />
           {request.button_only && (
-            <p className="confirm__button-only">
-              <Icon name="warning" />
-              Голосового „да“ недостаточно — подтвердите кнопкой
-            </p>
+            <p className="confirm__button-only">Голосового „да“ недостаточно — подтвердите кнопкой</p>
           )}
         </div>
         <div className="confirm__actions">

@@ -1,53 +1,48 @@
-// Панель «ЖУРНАЛ ДЕЙСТВИЙ»: новые записи сверху, цветная полоса — уровень риска.
+// Секция «ДЕЙСТВИЯ»: новые записи сверху. Компактная строка: точка статуса, название,
+// одна строка подробностей и (если есть) пояснение.
 
 import { memo, useMemo } from 'react'
 import { formatDuration, formatTimeLong } from '../format'
 import { ACTION_DECISION_LABELS, ACTION_STATUS_LABELS, RISK_LABELS } from '../labels'
 import type { ActionEntry, ActionStatus } from '../protocol'
 import { useSwyvorn } from '../store'
-import { Icon, type IconName } from './Icon'
-import { Panel } from './Panel'
+import { Section } from './Section'
 import './ActionLog.css'
 
-const STATUS_ICONS: Record<ActionStatus, IconName> = {
-  pending: 'pending',
-  awaiting_confirmation: 'hourglass',
-  running: 'spinner',
-  ok: 'check',
-  error: 'error',
-  denied: 'ban',
-  cancelled: 'minusCircle',
-  timeout: 'clock',
-  forbidden: 'shield',
-  stopped: 'square',
+type Tone = 'ok' | 'progress' | 'fail' | 'neutral'
+
+/** Цвет точки: зелёный — выполнено, янтарный — ждёт или идёт, красный — отказ, серый — прервано. */
+const STATUS_TONES: Record<ActionStatus, Tone> = {
+  pending: 'progress',
+  awaiting_confirmation: 'progress',
+  running: 'progress',
+  ok: 'ok',
+  error: 'fail',
+  denied: 'fail',
+  forbidden: 'fail',
+  cancelled: 'neutral',
+  timeout: 'neutral',
+  stopped: 'neutral',
 }
 
 const ActionItem = memo(function ActionItem({ entry }: { entry: ActionEntry }) {
+  const status = ACTION_STATUS_LABELS[entry.status]
   const decision = entry.decision ? ACTION_DECISION_LABELS[entry.decision] : null
   // «Отклонено» и «запрещено» дублируют статус — второй раз не пишем.
-  const showDecision = decision !== null && decision !== ACTION_STATUS_LABELS[entry.status]
+  const meta = [status]
+  if (decision !== null && decision !== status) meta.push(decision)
+  if (entry.duration_ms != null) meta.push(formatDuration(entry.duration_ms))
+  if (entry.demo) meta.push('демо')
+
   return (
-    <li className={`act act--${entry.risk}`}>
-      <span className="act__bar" role="img" title={RISK_LABELS[entry.risk]} aria-label={RISK_LABELS[entry.risk]} />
+    <li
+      className={`act act--${STATUS_TONES[entry.status]}`}
+      title={`${entry.tool} · ${RISK_LABELS[entry.risk]} · ${formatTimeLong(entry.created_at)}`}
+    >
+      <span className="act__dot" aria-hidden="true" />
       <div className="act__body">
-        <div className="act__kicker">
-          <code className="act__tool" title="Инструмент">
-            {entry.tool}
-          </code>
-          {entry.demo && <span className="tag-demo">ДЕМО</span>}
-          <time className="act__time mono" dateTime={new Date(entry.created_at).toISOString()}>
-            {formatTimeLong(entry.created_at)}
-          </time>
-        </div>
         <div className="act__title">{entry.title}</div>
-        <div className="act__meta">
-          <span className={`act__status act__status--${entry.status}`}>
-            <Icon name={STATUS_ICONS[entry.status]} className={entry.status === 'running' ? 'spin' : undefined} />
-            {ACTION_STATUS_LABELS[entry.status]}
-          </span>
-          {showDecision && <span className="act__decision">{decision}</span>}
-          {entry.duration_ms != null && <span className="act__duration mono">{formatDuration(entry.duration_ms)}</span>}
-        </div>
+        <div className="act__meta">{meta.join(' · ')}</div>
         {entry.detail && <p className="act__detail">{entry.detail}</p>}
       </div>
     </li>
@@ -59,19 +54,16 @@ export function ActionLog() {
   const newestFirst = useMemo(() => actions.slice().reverse(), [actions])
 
   return (
-    <Panel index="02" title="ЖУРНАЛ ДЕЙСТВИЙ" aside={actions.length > 0 ? String(actions.length).padStart(2, '0') : '—'} className="actlog">
+    <Section title="Действия" className="actlog">
       {newestFirst.length === 0 ? (
-        <div className="actlog__empty">
-          <Icon name="list" className="actlog__empty-icon" />
-          Действий пока не было
-        </div>
+        <p className="actlog__empty">Действий пока не было</p>
       ) : (
-        <ol className="actlog__list" aria-label="Журнал действий">
+        <ol className="actlog__list fade-scroll" aria-label="Журнал действий">
           {newestFirst.map((entry) => (
             <ActionItem key={entry.id} entry={entry} />
           ))}
         </ol>
       )}
-    </Panel>
+    </Section>
   )
 }

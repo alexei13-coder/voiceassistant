@@ -30,7 +30,7 @@ export interface OrbLayout {
   squareX: number
   squareY: number
   squareSize: number
-  /** Базовая толщина линии («1 CSS px», чуть растёт на больших ядрах) в долях R. */
+  /** Толщина волосяной линии (1–1,5 px устройства, чуть больше на очень крупных ядрах) в долях R. */
   line: number
 }
 
@@ -40,7 +40,8 @@ export function layoutFor({ width, height, pixelRatio }: OrbViewport): OrbLayout
   const squareSize = Math.max(1, Math.floor(side))
   const scale = side / 2 / HALF_SIDE_IN_R
   const cssSide = side / pixelRatio
-  const lineCss = Math.min(1.6, Math.max(0.85, cssSide / 640))
+  // Волосяная линия: 1 px на обычном экране, 1,25–1,5 px на масштабе 125–200 % — тонко, но не мыльно.
+  const linePx = Math.min(1.5, Math.max(1, pixelRatio)) * Math.min(1.25, Math.max(1, cssSide / 900))
   return {
     centerX: width / 2,
     centerY: height / 2,
@@ -48,6 +49,6 @@ export function layoutFor({ width, height, pixelRatio }: OrbViewport): OrbLayout
     squareX: Math.floor((width - squareSize) / 2),
     squareY: Math.floor((height - squareSize) / 2),
     squareSize,
-    line: (lineCss * pixelRatio) / scale,
+    line: linePx / scale,
   }
 }

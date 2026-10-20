@@ -1,73 +1,89 @@
 /* Единые дизайн-токены HUD. Все компоненты и ядро (orb) берут цвета отсюда.
-   Оригинальный стиль: почти чёрный фон, циан, тонкие линии, мягкое свечение. */
+   Минималистичный стиль: тихий почти чёрный фон, типографика, волосяные линии,
+   один акцент (циан) — только для ядра, точки состояния, фокуса, активного микрофона и ссылок. */
 
 :root {
-  /* фон */
-  --bg: #04070c;
-  --bg-deep: #020408;
-  --panel: rgba(6, 18, 28, 0.62);
-  --panel-solid: #07131d;
-  --panel-hover: rgba(10, 30, 44, 0.72);
+  /* фон и поверхности */
+  --bg: #07090c;
+  --bg-deep: #050608;
+  /* приподнятая поверхность: поле ввода, диалог, уведомления */
+  --surface: #0d1116;
+  --surface-soft: rgba(255, 255, 255, 0.03);
+  /* старые имена — для модулей, которые на них ссылаются (orb-lab и др.) */
+  --panel: rgba(255, 255, 255, 0.03);
+  --panel-solid: #0d1116;
+  --panel-hover: rgba(255, 255, 255, 0.05);
 
-  /* линии */
-  --line: rgba(0, 229, 255, 0.16);
-  --line-strong: rgba(0, 229, 255, 0.45);
-  --line-faint: rgba(0, 229, 255, 0.07);
+  /* волосяные линии */
+  --hairline: rgba(255, 255, 255, 0.07);
+  --line: rgba(255, 255, 255, 0.07);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --line-faint: rgba(255, 255, 255, 0.04);
 
   /* акценты */
-  --cyan: #00e5ff;
-  --cyan-soft: #7ff3ff;
-  --cyan-deep: #007f99;
-  --blue: #4fa8ff;
-  --amber: #ffb547;
-  --amber-soft: #ffd08a;
-  --red: #ff4d5e;
-  --green: #3dffa8;
-  --grey: #6b7c88;
+  --cyan: #3ee0f0;
+  --cyan-soft: #a8f0f7;
+  --cyan-deep: #1f8f9c;
+  --blue: #7aa7ff;
+  --amber: #f5b14c;
+  --amber-soft: #f8cd8f;
+  --red: #ff5a67;
+  --green: #4fe3a1;
+  --grey: #6b7682;
 
   /* текст */
-  --text: #d4f4ff;
-  --text-dim: #7d9bad;
-  --text-faint: #4a6373;
+  --text: #e6edf3;
+  --text-dim: #8b98a5;
+  --text-faint: #56616c;
 
-  /* цвета состояний ядра (orb и подписи) */
-  --state-idle: #00b8d4;
-  --state-listening: #00e5ff;
-  --state-thinking: #4fa8ff;
-  --state-speaking: #7ff3ff;
-  --state-awaiting: #ffb547;
-  --state-executing: #3dffa8;
-  --state-error: #ff4d5e;
-  --state-stopped: #6b7c88;
+  /* цвета состояний ядра (orb и точка состояния) */
+  --state-idle: #5fd4e6;
+  --state-listening: #3ee0f0;
+  --state-thinking: #7aa7ff;
+  --state-speaking: #a8f0f7;
+  --state-awaiting: #f5b14c;
+  --state-executing: #4fe3a1;
+  --state-error: #ff5a67;
+  --state-stopped: #6b7682;
 
   /* риск */
-  --risk-safe: #3dffa8;
-  --risk-confirm: #ffb547;
-  --risk-forbidden: #ff4d5e;
+  --risk-safe: #4fe3a1;
+  --risk-confirm: #f5b14c;
+  --risk-forbidden: #ff5a67;
 
-  /* свечение */
-  --glow-cyan: 0 0 12px rgba(0, 229, 255, 0.35), 0 0 2px rgba(0, 229, 255, 0.6);
-  --glow-amber: 0 0 14px rgba(255, 181, 71, 0.4), 0 0 2px rgba(255, 181, 71, 0.7);
-  --glow-red: 0 0 16px rgba(255, 77, 94, 0.45), 0 0 2px rgba(255, 77, 94, 0.8);
+  /* кольца фокуса и мягкие подложки акцентов */
+  --focus-ring: rgba(62, 224, 240, 0.7);
+  --cyan-wash: rgba(62, 224, 240, 0.1);
+  --amber-wash: rgba(245, 177, 76, 0.08);
+  --red-wash: rgba(255, 90, 103, 0.08);
+
+  /* свечение — в минималистичном стиле почти не используется, имена оставлены для совместимости */
+  --glow-cyan: 0 0 0 3px rgba(62, 224, 240, 0.12);
+  --glow-amber: 0 0 0 3px rgba(245, 177, 76, 0.14);
+  --glow-red: 0 0 0 3px rgba(255, 90, 103, 0.14);
 
   /* шрифты (локальные, с кириллицей — @fontsource) */
-  --font-ui: 'Exo 2', 'Segoe UI', system-ui, sans-serif;
+  --font-ui: 'Manrope', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
 
   /* размеры */
-  --radius: 4px;
-  --radius-lg: 8px;
+  --radius: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
   --gap: 12px;
   --gap-lg: 20px;
-  --topbar-h: 44px;
-  --bottombar-h: 64px;
-  --side-w: 360px;
+  --pad-x: 32px;
+  --col-gap: 48px;
+  --topbar-h: 48px;
+  --bottombar-h: 84px;
+  --side-w: 320px;
+  --side-w-right: 300px;
 
-  /* анимация */
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-fast: 120ms;
-  --dur: 220ms;
-  --dur-slow: 420ms;
+  /* анимация: короткие спокойные затухания */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 240ms;
 }
 
 @media (prefers-reduced-motion: reduce) {

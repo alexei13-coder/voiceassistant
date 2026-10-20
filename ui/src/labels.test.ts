@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AssistantState } from './protocol'
-import { connectionBanner, offlineHint, roleLabel, stateHint } from './labels'
+import { STATE_WORDS, connectionBanner, offlineHint, roleLabel, stateHint } from './labels'
 
 const ctx = { reason: null, activateHotkey: 'Ctrl+Shift+Space', assistantName: 'Пятница' }
 
@@ -44,10 +44,19 @@ describe('stateHint', () => {
 
 describe('roleLabel', () => {
   it('подписи ролей', () => {
-    expect(roleLabel('user', 'SWYVORN')).toBe('ВЫ')
-    expect(roleLabel('system', 'SWYVORN')).toBe('СИСТЕМА')
-    expect(roleLabel('assistant', 'SWYVORN')).toBe('SWYVORN')
+    expect(roleLabel('user', 'SWYVORN')).toBe('вы')
+    expect(roleLabel('system', 'SWYVORN')).toBe('система')
+    expect(roleLabel('assistant', 'Пятница')).toBe('Пятница')
     expect(roleLabel('assistant', '')).toBe('SWYVORN')
+  })
+})
+
+describe('STATE_WORDS', () => {
+  it('слова состояний строчными, у каждого состояния своё', () => {
+    const words = Object.values(STATE_WORDS)
+    for (const w of words) expect(w).toBe(w.toLowerCase())
+    expect(new Set(words).size).toBe(words.length)
+    expect(STATE_WORDS.awaiting_confirmation).toBe('жду подтверждения')
   })
 })
 

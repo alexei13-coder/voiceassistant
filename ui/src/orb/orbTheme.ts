@@ -10,15 +10,16 @@ export interface OrbTheme {
   states: Record<AssistantState, Rgb>
 }
 
+// Запасные значения совпадают с tokens.css: ядро выглядит так же, даже если переменные не прочитались.
 const STATE_VARS: Record<AssistantState, readonly [cssVar: string, fallback: string]> = {
-  idle: ['--state-idle', '#00b8d4'],
-  listening: ['--state-listening', '#00e5ff'],
-  thinking: ['--state-thinking', '#4fa8ff'],
-  speaking: ['--state-speaking', '#7ff3ff'],
-  awaiting_confirmation: ['--state-awaiting', '#ffb547'],
-  executing: ['--state-executing', '#3dffa8'],
-  error: ['--state-error', '#ff4d5e'],
-  stopped: ['--state-stopped', '#6b7c88'],
+  idle: ['--state-idle', '#5fd4e6'],
+  listening: ['--state-listening', '#3ee0f0'],
+  thinking: ['--state-thinking', '#7aa7ff'],
+  speaking: ['--state-speaking', '#a8f0f7'],
+  awaiting_confirmation: ['--state-awaiting', '#f5b14c'],
+  executing: ['--state-executing', '#4fe3a1'],
+  error: ['--state-error', '#ff5a67'],
+  stopped: ['--state-stopped', '#6b7682'],
 }
 
 /** Разбирает #rgb, #rrggbb и rgb()/rgba() (через запятые или пробелы). Остальное — null. */

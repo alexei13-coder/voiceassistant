@@ -1,20 +1,34 @@
+/* Центр: ядро и подпись стоят единой группой по центру колонки, без рамок. */
+
 .stage {
   position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   min-height: 0;
+  /* место под свёрнутый пульт демо; заодно группа ядра встаёт чуть выше геометрического центра */
+  padding-bottom: 64px;
+  container-type: size;
+  /* Сторона квадрата ядра, не больше 520 px и всегда с местом под подпись.
+     Сам рисунок ядра в покое занимает лишь середину квадрата (края — запас под
+     столбики звука и волну), поэтому квадрат крупнее, чем видимое ядро.
+     cq-единицы подставляются у потребителей — прямых детей .stage, то есть тоже от .stage. */
+  --orb-size: min(72cqmin, 520px, calc(100cqh - 130px));
 }
 
 .stage__orb {
-  flex: 1 1 auto;
-  min-height: 160px;
+  flex: none;
+  width: 100%;
+  height: var(--orb-size);
+  min-height: 120px;
   display: grid;
   place-items: center;
   container-type: size;
 }
 
-/* Квадрат, вписанный в доступную область */
+/* Квадрат, вписанный в область ядра */
 .stage__orb-box {
   position: relative;
   width: min(100cqw, 100cqh);
@@ -29,81 +43,79 @@
   height: 100%;
 }
 
-/* Видоискатель: четыре уголка по краям квадрата ядра */
-.stage__frame {
-  --c: var(--line-strong);
-  --s: 22px;
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.55;
-  background:
-    linear-gradient(var(--c), var(--c)) top left / var(--s) 1px no-repeat,
-    linear-gradient(var(--c), var(--c)) top left / 1px var(--s) no-repeat,
-    linear-gradient(var(--c), var(--c)) top right / var(--s) 1px no-repeat,
-    linear-gradient(var(--c), var(--c)) top right / 1px var(--s) no-repeat,
-    linear-gradient(var(--c), var(--c)) bottom left / var(--s) 1px no-repeat,
-    linear-gradient(var(--c), var(--c)) bottom left / 1px var(--s) no-repeat,
-    linear-gradient(var(--c), var(--c)) bottom right / var(--s) 1px no-repeat,
-    linear-gradient(var(--c), var(--c)) bottom right / 1px var(--s) no-repeat;
-}
+/* ---------- подпись ---------- */
 
 .stage__caption {
   flex: none;
-  /* снизу — место под свёрнутый пульт демо, чтобы подсказка его не задевала */
-  padding: 6px 16px 34px;
+  max-width: min(460px, 100%);
+  /* Подпись заходит на пустой нижний край квадрата — ближе к видимому ядру */
+  margin-top: calc(var(--orb-size) * -0.08);
+  padding: 0 16px;
   text-align: center;
   animation: fade-up var(--dur-slow) var(--ease) both;
 }
 
 .stage__state {
   /* letter-spacing добавляет хвост справа — компенсируем отступом слева */
-  padding-left: 0.42em;
-  font-size: 30px;
+  padding-left: 0.2em;
+  font-size: 19px;
   font-weight: 300;
-  line-height: 1.15;
-  letter-spacing: 0.42em;
-  color: var(--state-color);
-  text-shadow: 0 0 18px var(--state-color);
+  line-height: 1.3;
+  letter-spacing: 0.2em;
+  color: var(--text);
   white-space: nowrap;
 }
 
-.stage__hint {
-  margin-top: 10px;
-  font-size: 14px;
+/* Цвет слова — только там, где он несёт смысл */
+.stage__caption--awaiting_confirmation .stage__state {
+  color: var(--amber);
+}
+
+.stage__caption--error .stage__state {
+  color: var(--red);
+}
+
+.stage__caption--stopped .stage__state {
   color: var(--text-dim);
+}
+
+.stage__hint {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-faint);
   overflow-wrap: anywhere;
 }
 
-/* Тонкая линейка между подписью и подсказкой */
-.stage__state::after {
-  content: '';
-  display: block;
-  width: 180px;
-  height: 1px;
-  margin: 12px auto 0;
-  /* компенсируем padding-left заголовка, чтобы линия стояла по центру */
-  transform: translateX(-0.21em);
-  background: linear-gradient(90deg, transparent, var(--state-color), transparent);
-  opacity: 0.55;
+/* ---------- режим подтверждения: ядро уменьшается, диалог под ним ---------- */
+
+.stage--confirming {
+  justify-content: center;
+  padding-bottom: 12px;
 }
 
-.stage--confirming .stage__frame {
-  opacity: 0.3;
+.stage--confirming .stage__orb {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 88px;
+  max-height: 260px;
 }
 
-@media (max-width: 1279px), (max-height: 820px) {
-  .stage__caption {
-    padding: 4px 12px 32px;
+@media (max-height: 780px) {
+  .stage {
+    padding-bottom: 44px;
   }
 
   .stage__state {
-    font-size: 24px;
-    letter-spacing: 0.34em;
-    padding-left: 0.34em;
+    font-size: 18px;
   }
 
   .stage__hint {
-    font-size: 13px;
+    margin-top: 6px;
+    font-size: 12.5px;
+  }
+
+  .stage--confirming {
+    padding-bottom: 8px;
   }
 }

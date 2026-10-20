@@ -1,81 +1,53 @@
-/* Янтарная рамка, срезанные углы, как у панелей, но в цвете риска «confirm». */
+/* Карточка подтверждения: приподнятая поверхность, тонкая янтарная рамка
+   и янтарная линия отсчёта по верхнему краю. */
 
 .confirm {
-  --notch: 16px;
   container: confirm / inline-size;
   position: relative;
   z-index: 3;
   flex: 0 1 auto;
   display: flex;
   flex-direction: column;
+  width: min(560px, 100%);
   min-height: 0;
-  max-height: 64%;
-  margin: 4px 8px 12px;
-  padding: 16px 20px 16px;
-  background: linear-gradient(180deg, var(--panel-solid), var(--panel));
-  border: 1px solid var(--amber);
-  box-shadow: inset 0 0 40px -18px var(--amber);
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--notch)) 0,
-    100% var(--notch),
-    100% 100%,
-    var(--notch) 100%,
-    0 calc(100% - var(--notch))
-  );
+  max-height: calc(100% - 100px);
+  padding: 22px 24px 20px;
+  overflow: hidden;
+  border: 1px solid rgba(245, 177, 76, 0.4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 24px 48px -24px rgba(0, 0, 0, 0.6);
   animation: fade-up var(--dur-slow) var(--ease) both;
-}
-
-.confirm::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  pointer-events: none;
-  background:
-    linear-gradient(to bottom left, transparent calc(50% - 1px), var(--amber) 50%, transparent calc(50% + 1px)) top
-      right / var(--notch) var(--notch) no-repeat,
-    linear-gradient(to bottom left, transparent calc(50% - 1px), var(--amber) 50%, transparent calc(50% + 1px)) bottom
-      left / var(--notch) var(--notch) no-repeat;
 }
 
 .confirm__head {
   flex: none;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
   flex-wrap: wrap;
-}
-
-.confirm__icon {
-  width: 16px;
-  height: 16px;
-  color: var(--amber);
-  filter: drop-shadow(0 0 4px var(--amber));
+  gap: 4px 16px;
 }
 
 .confirm__kicker {
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.24em;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--amber);
 }
 
 .confirm__demo {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
   font-size: 12px;
-  color: var(--amber-soft);
+  color: var(--text-faint);
 }
 
 .confirm__title {
   flex: none;
-  margin: 10px 0 12px;
-  font-size: 21px;
+  margin: 6px 0 16px;
+  font-size: 18px;
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.35;
   color: var(--text);
 }
 
@@ -86,8 +58,9 @@
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-right: 4px;
+  gap: 14px;
+  margin-right: -8px;
+  padding-right: 8px;
 }
 
 .confirm__label {
@@ -95,42 +68,47 @@
   align-items: center;
   gap: 8px;
   margin: 0 0 6px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--text-faint);
+}
+
+.confirm__label .mono {
+  letter-spacing: 0;
 }
 
 .confirm__lang {
   padding: 1px 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: 2px;
+  border-radius: 4px;
+  background: var(--panel-hover);
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
   text-transform: none;
-  color: var(--cyan-soft);
+  color: var(--text-dim);
 }
 
+/* Объекты показываем целиком: пользователь должен видеть, что именно подтверждает */
 .confirm__details {
   max-height: 96px;
   margin: 0;
-  padding: 6px 10px;
+  padding: 0;
   overflow-y: auto;
   list-style: none;
-  border-left: 1px solid var(--amber);
-  background: var(--line-faint);
   font-family: var(--font-mono);
   font-size: 11.5px;
-  line-height: 1.6;
+  line-height: 1.65;
   color: var(--text);
   user-select: text;
 }
 
-/* Объекты показываем целиком: пользователь должен видеть, что именно подтверждает */
 .confirm__details li {
+  /* длинный путь переносится с висячим отступом — видно, где начинается следующий объект */
+  padding-left: 2ch;
+  text-indent: -2ch;
   overflow-wrap: anywhere;
 }
 
@@ -142,15 +120,16 @@
   margin: 0;
   padding: 10px 12px;
   overflow-x: auto;
-  background: var(--bg-deep);
-  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--cyan-soft);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text);
   white-space: pre;
   tab-size: 4;
   user-select: text;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
 
 .confirm__analysis {
@@ -160,8 +139,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12.5px;
-  color: var(--text);
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 .confirm__analysis li {
@@ -173,22 +152,13 @@
 .confirm__analysis .icon {
   width: 12px;
   height: 12px;
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--green);
-}
-
-.confirm__model {
-  padding: 8px 12px;
-  border: 1px dashed var(--line-strong);
-}
-
-.confirm__model .confirm__label {
-  color: var(--text-faint);
 }
 
 .confirm__model p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 13px;
   font-style: italic;
   color: var(--text-dim);
 }
@@ -196,11 +166,11 @@
 .confirm__footer {
   flex: none;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 20px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line-faint);
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
 }
 
 .confirm__status {
@@ -208,32 +178,23 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .confirm__button-only {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   margin: 0;
   font-size: 12px;
   color: var(--amber-soft);
 }
 
-.confirm__button-only .icon {
-  width: 12px;
-  height: 12px;
-  color: var(--amber);
-}
-
 .confirm__actions {
   flex: none;
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
-/* Узкий центр (окно ~1100 px): отсчёт на всю ширину, кнопки под ним */
-@container confirm (max-width: 560px) {
+/* Узкий центр (окно ~1100 px): кнопки под отсчётом */
+@container confirm (max-width: 500px) {
   .confirm__footer {
     flex-direction: column;
     align-items: stretch;
@@ -249,39 +210,38 @@
 
 .countdown {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 18px;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-faint);
 }
 
-.countdown__track {
-  position: relative;
-  flex: 1 1 auto;
-  height: 4px;
-  background: var(--line-faint);
+/* Линия 2 px по верхнему краю карточки (позиционируется относительно .confirm) */
+.countdown__line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
   overflow: hidden;
+  background: rgba(245, 177, 76, 0.12);
 }
 
 .countdown__bar {
   position: absolute;
   inset: 0;
   background: var(--amber);
-  box-shadow: var(--glow-amber);
   transform-origin: left center;
   will-change: transform;
 }
 
 .countdown__seconds {
-  min-width: 34px;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--amber);
-  text-align: right;
 }
 
 .countdown__speaking {
-  font-size: 12.5px;
-  color: var(--amber-soft);
-  animation: blink 1.6s ease-in-out infinite;
+  color: var(--text-faint);
 }
 
 /* ---------- кнопки ---------- */
@@ -292,17 +252,16 @@
   justify-content: center;
   gap: 8px;
   height: 38px;
-  padding: 0 18px;
+  padding: 0 16px;
   border: 1px solid var(--line-strong);
-  border-radius: var(--radius);
+  border-radius: 8px;
   background: transparent;
   font-size: 13.5px;
   font-weight: 500;
-  letter-spacing: 0.02em;
   white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
     opacity var(--dur-fast) var(--ease);
 }
 
@@ -315,23 +274,19 @@
 }
 
 .btn--ghost:not(:disabled):hover {
+  border-color: rgba(255, 255, 255, 0.22);
   background: var(--panel-hover);
-}
-
-.btn--ghost:focus-visible {
-  outline-offset: 3px;
-  box-shadow: var(--glow-cyan);
 }
 
 .btn--amber {
   border-color: var(--amber);
   background: var(--amber);
-  color: var(--bg);
+  color: #1a1206;
   font-weight: 600;
 }
 
 .btn--amber:not(:disabled):hover {
-  box-shadow: var(--glow-amber);
+  background: #f7bd63;
 }
 
 .btn--amber:focus-visible {
@@ -339,7 +294,11 @@
 }
 
 .btn__kbd {
+  padding: 0 5px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 10px;
+  line-height: 16px;
   color: var(--text-faint);
 }

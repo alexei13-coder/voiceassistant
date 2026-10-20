@@ -3,6 +3,9 @@
 //   state=<состояние | awaiting>  level=0..1  countdown=0..1 (доля оставшегося времени)
 //   static=1 (заморозить время) [t=секунды]  renderer=2d  panel=0|1  reduced=1  log=1 (статистика в консоль)
 
+import '@fontsource/manrope/400.css'
+import '@fontsource/manrope/500.css'
+import '@fontsource/jetbrains-mono/400.css'
 import '../styles/tokens.css'
 import './lab.css'
 
@@ -205,7 +208,7 @@ function LabPanel({ stats, levels }: { stats: OrbStats | null; levels: LevelCont
 
   return (
     <aside className="lab__panel" aria-label="Пульт лаборатории">
-      <h1 className="lab__title">ЛАБОРАТОРИЯ ЯДРА</h1>
+      <h1 className="lab__title">Лаборатория ядра</h1>
       <label className="lab__field">
         Состояние
         <select value={state} onChange={(e) => setLabState(e.target.value as AssistantState)}>

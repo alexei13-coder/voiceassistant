@@ -1,12 +1,8 @@
 // Запасная отрисовка ядра на Canvas 2D — если WebGL2 недоступен (старый драйвер, удалённый рабочий стол).
-// Упрощённая, но с теми же состояниями: плазма-градиент, кольца, дуги, столбики, отсчёт, прогресс.
+// Упрощённая, но с теми же состояниями и той же композицией, что и шейдер: мягкая плазма-градиент,
+// одно кольцо с дугами, отсчётом и прогрессом, редкие столбики и одна волна «говорю».
 
 import {
-  ARC_DASH_DUTY,
-  ARC_RADIUS_A,
-  ARC_RADIUS_B,
-  ARCS_A,
-  ARCS_B,
   BAR_AUDIO_SPAN,
   BAR_COUNT,
   BAR_INNER,
@@ -14,15 +10,9 @@ import {
   BAR_WAVE_SPAN,
   barShape,
   COLLAPSED_SCALE,
-  COUNTDOWN_RADIUS,
-  DIAL_RADIUS,
-  DIAL_TICKS,
-  PARTICLE_COUNT,
+  cometFade,
   RING_RADIUS,
-  RING_TICKS,
-  RIPPLE_STEP,
-  THINK_INNER,
-  THINK_OUTER,
+  RIPPLE_END,
 } from './orbGeometry'
 import type { OrbFrame } from './orbModel'
 import type { OrbTheme, Rgb } from './orbTheme'
@@ -30,16 +20,8 @@ import { layoutFor, type OrbLayout, type OrbRenderer } from './renderer'
 
 const TAU = Math.PI * 2
 const TOP = Math.PI / 2
-
-/** Шлейф развёртки: (доля оборота за ведущим краем, яркость) — выборка профиля из шейдера. */
-const SWEEP_TAIL: readonly (readonly [number, number])[] = [
-  [0, 0.31],
-  [0.04, 0.135],
-  [0.1, 0.05],
-  [0.3, 0.01],
-  [0.75, 0],
-  [1, 0],
-]
+/** На сколько отрезков режется хвост «кометы»: плавный градиент яркости без шейдера. */
+const COMET_STEPS = 16
 
 function rgba(c: Rgb, alpha: number): string {
   const a = Math.min(1, Math.max(0, alpha))
@@ -58,60 +40,27 @@ export function createCanvasRenderer(canvas: HTMLCanvasElement, theme: OrbTheme)
   const red = theme.states.error
   const grey = theme.states.stopped
 
-  /** Окружность или дуга по часовой от «12 часов» (система координат — y вверх, как в шейдере). */
+  /** Дуга по часовой от угла `from` (угол по часовой от «12»). Система координат — y вверх, как в шейдере. */
   const strokeArc = (radius: number, from: number, length: number, width: number, style: string) => {
     ctx.beginPath()
-    ctx.arc(0, 0, radius, from, from - length, true)
+    ctx.arc(0, 0, radius, TOP - from, TOP - from - length, true)
     ctx.lineWidth = width
     ctx.strokeStyle = style
     ctx.stroke()
   }
 
-  const radialTicks = (count: number, angle: number, r0: (i: number) => number, r1: (i: number) => number) => {
-    ctx.beginPath()
-    for (let i = 0; i < count; i++) {
-      const a = angle + (i / count) * TAU
-      const cos = Math.cos(a)
-      const sin = Math.sin(a)
-      ctx.moveTo(cos * r0(i), sin * r0(i))
-      ctx.lineTo(cos * r1(i), sin * r1(i))
+  /** «Комета» на кольце: скруглённая голова под углом head, хвост длиной length растворяется. */
+  const comet = (head: number, length: number, width: number, color: Rgb, alpha: number) => {
+    const step = length / COMET_STEPS
+    ctx.lineCap = 'butt'
+    for (let i = 0; i < COMET_STEPS; i++) {
+      const fade = cometFade((i + 0.5) / COMET_STEPS)
+      strokeArc(RING_RADIUS, head - length + i * step, step, width, rgba(color, alpha * fade))
     }
-  }
-
-  /**
-   * Луч локатора: яркий ведущий край и шлейф против часовой стрелки (профиль — как в шейдере),
-   * по радиусу мягко гаснет к краям зоны «думаю». Рисуется на пустой холст.
-   */
-  const drawSweep = (angle: number, color: Rgb, alpha: number, lw: number) => {
-    const lead = TOP - angle
-    ctx.globalCompositeOperation = 'source-over'
-    if (typeof ctx.createConicGradient === 'function') {
-      // y перевёрнут, поэтому рост угла конического градиента идёт против часовой — как раз хвост.
-      const cone = ctx.createConicGradient(lead, 0, 0)
-      for (const [at, a] of SWEEP_TAIL) cone.addColorStop(at, rgba(color, a * alpha))
-      ctx.fillStyle = cone
-      ctx.beginPath()
-      ctx.arc(0, 0, THINK_OUTER, 0, TAU)
-      ctx.arc(0, 0, THINK_INNER, 0, TAU, true)
-      ctx.fill()
-    }
+    const a = TOP - head
     ctx.beginPath()
-    ctx.moveTo(Math.cos(lead) * THINK_INNER, Math.sin(lead) * THINK_INNER)
-    ctx.lineTo(Math.cos(lead) * THINK_OUTER, Math.sin(lead) * THINK_OUTER)
-    ctx.lineWidth = lw * 1.2
-    ctx.strokeStyle = rgba(color, 0.55 * alpha)
-    ctx.stroke()
-
-    const span = THINK_OUTER - THINK_INNER
-    const fade = ctx.createRadialGradient(0, 0, THINK_INNER, 0, 0, THINK_OUTER)
-    fade.addColorStop(0, 'rgba(0, 0, 0, 1)')
-    fade.addColorStop(0.12 / span, 'rgba(0, 0, 0, 0)')
-    fade.addColorStop(1 - 0.16 / span, 'rgba(0, 0, 0, 0)')
-    fade.addColorStop(1, 'rgba(0, 0, 0, 1)')
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.fillStyle = fade
-    ctx.beginPath()
-    ctx.arc(0, 0, THINK_OUTER + lw, 0, TAU)
+    ctx.arc(Math.cos(a) * RING_RADIUS, Math.sin(a) * RING_RADIUS, width / 2, 0, TAU)
+    ctx.fillStyle = rgba(color, alpha)
     ctx.fill()
   }
 
@@ -124,135 +73,71 @@ export function createCanvasRenderer(canvas: HTMLCanvasElement, theme: OrbTheme)
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       const collapse = f.collapse
-      const scale = layout.scale * (1 + (COLLAPSED_SCALE - 1) * collapse) * (1 + 0.03 * f.flash)
+      const scale = layout.scale * (1 + (COLLAPSED_SCALE - 1) * collapse) * (1 + 0.012 * f.flash)
       ctx.setTransform(scale, 0, 0, -scale, layout.centerX, layout.centerY)
-      ctx.lineCap = 'butt'
-
-      const lw = (layout.line * layout.scale) / scale
-      let color: Rgb = mixRgb(f.color, red, Math.min(1, f.flash * 0.75))
-      color = mixRgb(color, grey, collapse * 0.85)
-      const rings = f.energy * (1 - 0.55 * collapse)
-
-      // Развёртка «думаю» — первой, пока холст пуст: её радиальное затухание вырезается
-      // через destination-out и не задевает остальные элементы.
-      if (f.sweep > 0.001) drawSweep(f.sweepAngle, color, f.sweep * rings, lw)
       ctx.globalCompositeOperation = 'lighter'
 
-      // Плазма: радиальный градиент с горячим центром.
+      const lw = (layout.line * layout.scale) / scale
+      let color: Rgb = mixRgb(f.color, red, Math.min(1, f.flash * 0.6))
+      color = mixRgb(color, grey, collapse * 0.85)
+      const lines = f.energy * (1 - 0.45 * collapse)
+
+      // Плазма: мягкий радиальный градиент со светлым, но не белым центром.
       const core = f.coreRadius
-      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, core * 1.9)
+      const reach = core * 1.6
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, reach)
       const boost = Math.min(1, f.coreBoost)
-      glow.addColorStop(0, rgba(mixRgb(color, [1, 1, 1], 0.55), 0.95 * boost))
-      glow.addColorStop(0.3, rgba(color, 0.75 * boost))
-      glow.addColorStop(0.52, rgba(color, 0.4 * boost))
-      glow.addColorStop(0.56, rgba(color, 0.18 * boost))
+      glow.addColorStop(0, rgba(mixRgb(color, [1, 1, 1], 0.3), 0.92 * boost))
+      glow.addColorStop(0.3, rgba(color, 0.78 * boost))
+      glow.addColorStop(0.58, rgba(color, 0.6 * boost))
+      glow.addColorStop(0.64, rgba(color, 0.14 * boost))
       glow.addColorStop(1, rgba(color, 0))
       ctx.fillStyle = glow
       ctx.beginPath()
-      ctx.arc(0, 0, core * 1.9, 0, TAU)
+      ctx.arc(0, 0, reach, 0, TAU)
       ctx.fill()
 
-      // Говорю: волны от ядра (пики той же синусоиды, что в шейдере).
+      // Говорю: одна волна от плазмы наружу.
       if (f.ripple > 0.001) {
-        const first = (RIPPLE_STEP * (f.ripplePhase + Math.PI / 2)) / TAU
-        for (let r = first; r < DIAL_RADIUS; r += RIPPLE_STEP) {
-          if (r <= core) continue
-          const fade = 1 - Math.min(1, Math.max(0, (r - 0.3) / (DIAL_RADIUS - 0.3)))
-          strokeArc(r, 0, TAU, lw, rgba(color, 0.3 * f.ripple * fade))
-        }
+        const t = f.rippleProgress
+        const fade = (1 - t) * (1 - t) * Math.min(1, t / 0.12)
+        strokeArc(core * 1.05 + (RIPPLE_END - core * 1.05) * t, 0, TAU, lw, rgba(color, 0.8 * f.ripple * fade * lines))
       }
 
-      // Внутреннее кольцо и 72 деления.
-      strokeArc(RING_RADIUS, 0, TAU, lw * 1.1, rgba(color, 0.8 * rings))
-      radialTicks(
-        RING_TICKS,
-        f.ringAngle,
-        (i) => RING_RADIUS - 0.004 - (i % 6 === 0 ? 0.02 : 0.009),
-        () => RING_RADIUS - 0.004,
-      )
-      ctx.lineWidth = lw
-      ctx.strokeStyle = rgba(color, 0.6 * rings)
-      ctx.stroke()
+      // Кольцо и дуги на нём.
+      ctx.lineCap = 'butt'
+      strokeArc(RING_RADIUS, 0, TAU, lw, rgba(color, 0.7 * f.ring * lines))
+      if (f.arc > 0.001) comet(f.arcAngle, f.arcLength, lw * 1.5, color, f.arc * lines)
+      if (f.arcPair > 0.001) comet(f.arcAngle + Math.PI, f.arcPairLength, lw * 1.5, color, f.arcPair * lines)
+      if (f.countdown > 0.001 && f.countdownFraction > 0.002) {
+        ctx.lineCap = f.countdownFraction < 1 ? 'round' : 'butt'
+        const alpha = f.countdown * (1 - 0.45 * collapse)
+        strokeArc(RING_RADIUS, 0, f.countdownFraction * TAU, lw * 1.5, rgba(amber, alpha))
+      }
+      if (f.chase > 0.001) comet(f.chaseHead, f.chaseLength, lw * 1.5, color, f.chase * lines)
 
-      // Сегментные дуги. Мелкие штрихи (шаг < 7 px) рисуются сплошной линией потусклее — как в шейдере.
-      for (const [start, length, dash] of ARCS_A) {
-        const dashed = dash > 0 && dash * ARC_RADIUS_A * scale >= 7
-        const dim = dash > 0 && !dashed ? ARC_DASH_DUTY * 0.85 : 1
-        ctx.setLineDash(dashed ? [dash * ARC_DASH_DUTY * ARC_RADIUS_A, dash * (1 - ARC_DASH_DUTY) * ARC_RADIUS_A] : [])
+      // Столбики: тонкие лучи, к кончику тускнеют.
+      if (f.bars > 0.001) {
         ctx.beginPath()
-        ctx.arc(0, 0, ARC_RADIUS_A, f.arcAngleA + start, f.arcAngleA + start + length)
-        ctx.lineWidth = lw * 2.7
-        ctx.strokeStyle = rgba(color, 0.9 * dim * rings)
-        ctx.stroke()
-      }
-      ctx.setLineDash([])
-      for (const [start, length] of ARCS_B) {
-        ctx.beginPath()
-        ctx.arc(0, 0, ARC_RADIUS_B, f.arcAngleB + start, f.arcAngleB + start + length)
-        ctx.lineWidth = lw
-        ctx.strokeStyle = rgba(color, 0.75 * rings)
-        ctx.stroke()
-      }
-
-      // Столбики-эквалайзер.
-      radialTicks(
-        BAR_COUNT,
-        0,
-        () => BAR_INNER,
-        (i) => {
+        for (let i = 0; i < BAR_COUNT; i++) {
           const shape = barShape(i, f.barPhase)
           const len = f.barBase + f.barAudio * shape.audio * BAR_AUDIO_SPAN + f.barWave * shape.wave * BAR_WAVE_SPAN
-          return BAR_INNER + Math.min(len, BAR_OUTER - BAR_INNER)
-        },
-      )
-      ctx.lineWidth = 0.32 * ((TAU * BAR_INNER) / BAR_COUNT)
-      ctx.strokeStyle = rgba(color, 0.85 * rings)
-      ctx.stroke()
-
-      // Отсчёт подтверждения и прогресс выполнения — на одном радиусе.
-      if (f.countdown > 0.001) {
-        const alpha = f.countdown * (1 - 0.55 * collapse)
-        strokeArc(COUNTDOWN_RADIUS, 0, TAU, lw, rgba(amber, 0.18 * alpha))
-        strokeArc(COUNTDOWN_RADIUS, TOP, f.countdownFraction * TAU, lw * 2.4, rgba(amber, 0.95 * alpha))
-      }
-      if (f.chase > 0.001) {
-        const tail = TOP - f.chaseHead + f.chaseLength
-        strokeArc(COUNTDOWN_RADIUS, tail, f.chaseLength, lw * 2, rgba(color, 0.9 * f.chase * rings))
-      }
-
-      // Лимб.
-      strokeArc(DIAL_RADIUS, 0, TAU, lw * 0.9, rgba(color, 0.4 * rings))
-      radialTicks(
-        DIAL_TICKS,
-        f.dialAngle,
-        () => DIAL_RADIUS + 0.004,
-        (i) => DIAL_RADIUS + 0.004 + (i % 5 === 0 ? 0.015 : 0.006),
-      )
-      ctx.lineWidth = lw * 0.9
-      ctx.strokeStyle = rgba(color, 0.4 * rings)
-      ctx.stroke()
-
-      // Думаю: частицы (развёртка нарисована первым проходом).
-      if (f.particles > 0.001) {
-        ctx.fillStyle = rgba(mixRgb(color, [1, 1, 1], 0.4), f.particles * rings)
-        ctx.beginPath()
-        const pd = f.particleData
-        for (let i = 0; i < PARTICLE_COUNT; i++) {
-          // Мерцание в 2D упрощено до «видна / не видна».
-          if (pd[i * 4 + 3] < 0.3) continue
-          const x = pd[i * 4]
-          const y = pd[i * 4 + 1]
-          const size = pd[i * 4 + 2]
-          ctx.moveTo(x + size, y)
-          ctx.arc(x, y, size, 0, TAU)
+          const r1 = BAR_INNER + Math.min(len, BAR_OUTER - BAR_INNER)
+          const a = (i / BAR_COUNT) * TAU
+          ctx.moveTo(Math.cos(a) * BAR_INNER, Math.sin(a) * BAR_INNER)
+          ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1)
         }
-        ctx.fill()
+        const alpha = 0.85 * f.bars * lines
+        const fade = ctx.createRadialGradient(0, 0, BAR_INNER, 0, 0, BAR_INNER + BAR_AUDIO_SPAN)
+        fade.addColorStop(0, rgba(color, alpha))
+        fade.addColorStop(1, rgba(color, 0.3 * alpha))
+        ctx.lineCap = 'round'
+        ctx.lineWidth = lw
+        ctx.strokeStyle = fade
+        ctx.stroke()
       }
 
-      // Ошибка: ударная волна.
-      if (f.shockAlpha > 0.001) {
-        strokeArc(0.24 + 0.42 * f.shock, 0, TAU, lw * 2.6, rgba(red, f.shockAlpha))
-      }
+      ctx.lineCap = 'butt'
       ctx.globalCompositeOperation = 'source-over'
     },
     dispose() {

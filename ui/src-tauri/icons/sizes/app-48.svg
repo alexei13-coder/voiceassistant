@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- Значок SWYVORN, вариант под 48 px: кольцо толще и крупнее мастера, внешняя кромка на границе
+       пикселя. Источник для PNG этого размера (и соседних) и слоя icon.ico -->
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121820"/>
+      <stop offset="0.6" stop-color="#090c10"/>
+      <stop offset="1" stop-color="#07090c"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7beaf5"/>
+      <stop offset="0.5" stop-color="#3ee0f0"/>
+      <stop offset="1" stop-color="#2bc4d6"/>
+    </linearGradient>
+    <radialGradient id="dot" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#d9fbff"/>
+      <stop offset="1" stop-color="#7fe9f4"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#3ee0f0" stop-opacity="1"/>
+      <stop offset="0.35" stop-color="#3ee0f0" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#3ee0f0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.576"/>
+    </filter>
+  </defs>
+  <!-- плашка: суперэллипс, едва заметный подъём тона сверху -->
+  <path d="M46.81 24.00 L46.79 30.22 L46.72 32.65 L46.60 34.47 L46.44 35.98 L46.23 37.28 L45.97 38.43 L45.66 39.47 L45.30 40.40 L44.89 41.24 L44.43 42.01 L43.91 42.71 L43.34 43.34 L42.71 43.91 L42.01 44.43 L41.24 44.89 L40.40 45.30 L39.47 45.66 L38.43 45.97 L37.28 46.23 L35.98 46.44 L34.47 46.60 L32.65 46.72 L30.22 46.79 L24.00 46.81 L17.78 46.79 L15.35 46.72 L13.53 46.60 L12.02 46.44 L10.72 46.23 L9.57 45.97 L8.53 45.66 L7.60 45.30 L6.76 44.89 L5.99 44.43 L5.29 43.91 L4.66 43.34 L4.09 42.71 L3.57 42.01 L3.11 41.24 L2.70 40.40 L2.34 39.47 L2.03 38.43 L1.77 37.28 L1.56 35.98 L1.40 34.47 L1.28 32.65 L1.21 30.22 L1.19 24.00 L1.21 17.78 L1.28 15.35 L1.40 13.53 L1.56 12.02 L1.77 10.72 L2.03 9.57 L2.34 8.53 L2.70 7.60 L3.11 6.76 L3.57 5.99 L4.09 5.29 L4.66 4.66 L5.29 4.09 L5.99 3.57 L6.76 3.11 L7.60 2.70 L8.53 2.34 L9.57 2.03 L10.72 1.77 L12.02 1.56 L13.53 1.40 L15.35 1.28 L17.78 1.21 L24.00 1.19 L30.22 1.21 L32.65 1.28 L34.47 1.40 L35.98 1.56 L37.28 1.77 L38.43 2.03 L39.47 2.34 L40.40 2.70 L41.24 3.11 L42.01 3.57 L42.71 4.09 L43.34 4.66 L43.91 5.29 L44.43 5.99 L44.89 6.76 L45.30 7.60 L45.66 8.53 L45.97 9.57 L46.23 10.72 L46.44 12.02 L46.60 13.53 L46.72 15.35 L46.79 17.78 Z" fill="url(#plate)"/>
+  <!-- мягкое свечение кольца -->
+  <circle cx="24" cy="24" r="12.875" fill="none" stroke="#3ee0f0" stroke-width="3.6" opacity="0.103" filter="url(#soft)"/>
+  <!-- кольцо — абстракция ядра -->
+  <circle cx="24" cy="24" r="12.875" fill="none" stroke="url(#ring)" stroke-width="2.25"/>
+  <!-- светящаяся точка в центре и её ореол -->
+  <circle cx="24" cy="24" r="10.478" fill="url(#halo)" opacity="0.231"/>
+  <circle cx="24" cy="24" r="3.692" fill="url(#dot)"/>
+</svg>

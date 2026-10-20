@@ -18,8 +18,8 @@ body {
   background-color: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   /* HUD — интерфейс, а не документ: выделять можно только текст диалога и команды */
@@ -41,18 +41,18 @@ button:disabled {
 }
 
 :focus-visible {
-  outline: 1px solid var(--cyan);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 ::selection {
-  background: var(--line-strong);
+  background: rgba(62, 224, 240, 0.25);
   color: var(--text);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .mono {
@@ -81,112 +81,182 @@ button:disabled {
   position: relative;
   isolation: isolate;
   display: grid;
-  grid-template-rows: var(--topbar-h) minmax(0, 1fr) var(--bottombar-h);
+  /* вторая строка — тонкая полоса связи; без неё она нулевой высоты */
+  grid-template-rows: var(--topbar-h) auto minmax(0, 1fr) var(--bottombar-h);
   height: 100vh;
   min-width: 1100px;
   min-height: 700px;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse 46% 52% at 50% 46%, var(--line-faint), transparent 72%),
-    radial-gradient(ellipse 120% 95% at 50% 50%, transparent 52%, var(--bg-deep) 100%),
-    var(--bg);
+  background: var(--bg);
 }
 
-/* Тонкая треугольно-шестигранная сетка, гаснущая к краям */
-.hud::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    repeating-linear-gradient(0deg, var(--line-faint) 0 1px, transparent 1px 34px),
-    repeating-linear-gradient(60deg, var(--line-faint) 0 1px, transparent 1px 34px),
-    repeating-linear-gradient(120deg, var(--line-faint) 0 1px, transparent 1px 34px);
-  mask-image: radial-gradient(ellipse 70% 70% at 50% 48%, black 10%, transparent 78%);
-  opacity: 0.55;
-}
-
-/* Сканирующие строки — едва заметная фактура экрана */
-.hud::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: repeating-linear-gradient(180deg, transparent 0 2px, var(--line-faint) 2px 3px);
-  opacity: 0.18;
+/* Явные строки: полоса связи появляется и исчезает, остальное не должно съезжать в её строку */
+.hud > .topbar {
+  grid-row: 1;
 }
 
 .hud__main {
+  grid-row: 3;
   display: grid;
-  grid-template-columns: var(--side-w) minmax(0, 1fr) var(--side-w);
-  gap: var(--gap);
-  padding: var(--gap);
+  grid-template-columns: var(--side-w) minmax(0, 1fr) var(--side-w-right);
+  column-gap: var(--col-gap);
+  padding: 20px var(--pad-x) 0;
   min-height: 0;
 }
 
 .hud__side {
   display: flex;
   flex-direction: column;
-  gap: var(--gap);
   min-height: 0;
   min-width: 0;
 }
 
+.hud > .bottombar {
+  grid-row: 4;
+}
+
 @media (max-width: 1279px) {
   .hud {
-    --side-w: 300px;
+    --pad-x: 24px;
+    --col-gap: 28px;
+    --side-w: 260px;
+    --side-w-right: 260px;
+  }
+}
+
+@media (max-height: 780px) {
+  .hud {
+    --bottombar-h: 72px;
+  }
+
+  .hud__main {
+    padding-top: 12px;
+  }
+}
+
+/* ---------- секции боковых колонок (без рамок) ---------- */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.section__head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.section__label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.section__aside {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+
+/* Края прокручиваемой ленты мягко гаснут — но только там, где за краем есть скрытое содержимое.
+   Ширина затухания анимируется по положению прокрутки (scroll-driven animation). Без поддержки
+   или при «меньше движения» края просто остаются чёткими. */
+@property --fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+.fade-scroll {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+}
+
+@supports (animation-timeline: scroll()) {
+  .fade-scroll {
+    animation: fade-scroll-edges linear both;
+    animation-timeline: scroll(self);
+  }
+}
+
+@keyframes fade-scroll-edges {
+  0% {
+    --fade-top: 0px;
+    --fade-bottom: 24px;
+  }
+  6%,
+  94% {
+    --fade-top: 24px;
+    --fade-bottom: 24px;
+  }
+  100% {
+    --fade-top: 24px;
+    --fade-bottom: 0px;
   }
 }
 
 /* ---------- общие элементы ---------- */
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 22px;
-  padding: 0 8px;
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+/* Маленькая иконка-кнопка без рамки */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
   color: var(--text-dim);
-  white-space: nowrap;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 
-.chip .icon {
-  width: 12px;
-  height: 12px;
-}
-
-.tag-demo {
-  display: inline-flex;
-  align-items: center;
+.icon-btn .icon {
+  width: 16px;
   height: 16px;
-  padding: 0 5px;
-  border: 1px solid var(--amber);
-  border-radius: 2px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  color: var(--amber);
-  white-space: nowrap;
 }
 
-/* Точка состояния с мягким пульсом; цвет — через --state-color */
+.icon-btn:not(:disabled):hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+}
+
+/* Точка состояния; цвет — через --state-color. Пульсирует только она и ядро. */
 .state-dot {
   position: relative;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   flex: none;
   border-radius: 50%;
   background: var(--state-color, var(--cyan));
-  box-shadow: 0 0 8px var(--state-color, var(--cyan));
 }
 
 .state-dot::after {
@@ -194,25 +264,35 @@ button:disabled {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1px solid var(--state-color, var(--cyan));
-  animation: dot-pulse 1.8s var(--ease) infinite;
+  background: var(--state-color, var(--cyan));
+  animation: dot-pulse 2.4s var(--ease) infinite;
 }
 
 @keyframes dot-pulse {
   0% {
     transform: scale(1);
-    opacity: 0.9;
+    opacity: 0.5;
   }
+  70%,
   100% {
-    transform: scale(2.8);
+    transform: scale(2.6);
     opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(4px);
   }
   to {
     opacity: 1;

@@ -1,4 +1,4 @@
-// «СТОП» — всегда на виду. Логика обычного и аварийного стопа — в core/stop.ts.
+// «Стоп» — всегда на виду. Логика обычного и аварийного стопа — в core/stop.ts.
 
 import { useState } from 'react'
 import { stopController } from '../core/stop'
@@ -14,7 +14,7 @@ interface Pulse {
 
 export function StopButton() {
   const hotkey = useSwyvorn((s) => s.info?.hotkeys.stop || DEFAULT_STOP_HOTKEY)
-  // seq как key перезапускает CSS-вспышку при каждом нажатии
+  // seq как key перезапускает короткую вспышку при каждом нажатии
   const [pulse, setPulse] = useState<Pulse | null>(null)
 
   const onClick = () => {
@@ -33,7 +33,7 @@ export function StopButton() {
         <span key={pulse.seq} className={pulse.emergency ? 'stop__flash stop__flash--emergency' : 'stop__flash'} aria-hidden="true" />
       )}
       <Icon name="stop" className="stop__icon" />
-      <span className="stop__label">СТОП</span>
+      <span className="stop__label">Стоп</span>
       <kbd className="stop__kbd">{formatHotkey(hotkey)}</kbd>
     </button>
   )

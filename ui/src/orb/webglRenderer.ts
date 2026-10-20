@@ -22,19 +22,17 @@ const UNIFORMS = [
   'uColor',
   'uCore',
   'uSpin',
-  'uRot',
+  'uRing',
+  'uArcLen',
   'uBars',
   'uBarPhase',
-  'uThink',
   'uChase',
   'uCountdown',
-  'uFx',
-  'uShock',
   'uRipple',
+  'uFx',
   'uAmber',
   'uRed',
   'uGrey',
-  'uParticles',
 ] as const
 
 type UniformName = (typeof UNIFORMS)[number]
@@ -154,18 +152,16 @@ export function createWebGLRenderer(
       gl.uniform1f(u.uPx, 1 / layout.scale)
       gl.uniform1f(u.uLine, layout.line)
       gl.uniform3fv(u.uColor, f.color)
-      gl.uniform4f(u.uCore, f.coreRadius, f.coreBoost, f.turbulence, 0)
+      gl.uniform4f(u.uCore, f.coreRadius, f.coreBoost, f.turbulence, f.energy)
       gl.uniform3fv(u.uSpin, f.spin)
-      gl.uniform4f(u.uRot, f.ringAngle, f.arcAngleA, f.arcAngleB, f.dialAngle)
-      gl.uniform4f(u.uBars, f.barBase, f.barAudio, f.barWave, 0)
-      gl.uniform4fv(u.uBarPhase, f.barPhase)
-      gl.uniform4f(u.uThink, f.sweep, f.sweepAngle, f.particles, 0)
-      gl.uniform4f(u.uChase, f.chase, f.chaseHead, f.chaseLength, 0)
-      gl.uniform4f(u.uCountdown, f.countdown, f.countdownFraction, 0, 0)
-      gl.uniform4f(u.uFx, f.energy, f.flash, f.collapse, 0)
-      gl.uniform2f(u.uShock, f.shock, f.shockAlpha)
-      gl.uniform2f(u.uRipple, f.ripple, f.ripplePhase)
-      gl.uniform4fv(u.uParticles, f.particleData)
+      gl.uniform4f(u.uRing, f.ring, f.arc, f.arcPair, f.arcAngle)
+      gl.uniform2f(u.uArcLen, f.arcLength, f.arcPairLength)
+      gl.uniform4f(u.uBars, f.barBase, f.barAudio, f.barWave, f.bars)
+      gl.uniform3fv(u.uBarPhase, f.barPhase)
+      gl.uniform3f(u.uChase, f.chase, f.chaseHead, f.chaseLength)
+      gl.uniform2f(u.uCountdown, f.countdown, f.countdownFraction)
+      gl.uniform2f(u.uRipple, f.ripple, f.rippleProgress)
+      gl.uniform2f(u.uFx, f.flash, f.collapse)
 
       gl.drawArrays(gl.TRIANGLES, 0, 3)
     },

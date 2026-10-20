@@ -1,28 +1,15 @@
-// Часы перерисовываются раз в секунду сами по себе, не трогая остальной HUD.
+// Часы верхней панели: только ЧЧ:ММ, дата — во всплывающей подсказке.
+// Перерисовываются сами по себе, не трогая остальной HUD.
 
-import { formatClock, formatFullDate, formatShortDate } from '../format'
+import { formatFullDate, formatTimeShort } from '../format'
 import { useNow } from '../hooks/useNow'
 
 export function TopClock() {
-  const date = new Date(useNow())
+  const now = useNow()
+  const date = new Date(now)
   return (
-    <span className="topclock">
-      <time className="topclock__time" dateTime={date.toISOString()}>
-        {formatClock(date)}
-      </time>
-      <span className="topclock__date">{formatShortDate(date)}</span>
-    </span>
-  )
-}
-
-export function BigClock() {
-  const date = new Date(useNow())
-  return (
-    <div className="bigclock">
-      <time className="bigclock__time" dateTime={date.toISOString()}>
-        {formatClock(date)}
-      </time>
-      <div className="bigclock__date">{formatFullDate(date)}</div>
-    </div>
+    <time className="topclock mono" dateTime={date.toISOString()} title={formatFullDate(date)}>
+      {formatTimeShort(now)}
+    </time>
   )
 }

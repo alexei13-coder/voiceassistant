@@ -1,4 +1,5 @@
-// Каркас HUD: верхняя панель, три колонки, нижняя панель и плавающие слои.
+// Каркас HUD: верхняя панель, (при проблемах со связью) тонкая строка, три колонки,
+// нижняя панель и плавающие уведомления.
 
 import { ActionLog } from './components/ActionLog'
 import { BottomBar } from './components/BottomBar'
@@ -15,6 +16,7 @@ export function App() {
   return (
     <div className="hud" data-reduced-motion={reducedMotion || undefined}>
       <TopBar />
+      <ConnectionBanner />
       <main className="hud__main">
         <ChatPanel />
         <CenterStage />
@@ -24,7 +26,6 @@ export function App() {
         </div>
       </main>
       <BottomBar />
-      <ConnectionBanner />
       <Notices />
     </div>
   )

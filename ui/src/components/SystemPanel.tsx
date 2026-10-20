@@ -1,71 +1,90 @@
-// Панель «СИСТЕМА»: ЦП и ОЗУ, сеть с графиком, время работы ядра и крупные часы.
+// Секция «СИСТЕМА»: компактные показатели — ЦП и ОЗУ с тонкой полосой, сеть, время работы ядра, модель.
+// Пока метрик нет (null) — тихие прочерки вместо чисел.
 
-import { formatMemory, formatRate, formatUptime } from '../format'
+import { formatMemory, formatPercent, formatRate, formatUptime } from '../format'
 import { useSwyvorn } from '../store'
-import { BigClock } from './Clock'
-import { Gauge } from './Gauge'
-import { Panel } from './Panel'
-import { Sparkline } from './Sparkline'
+import { Section } from './Section'
 import './SystemPanel.css'
 
-function NetRow({ arrow, label, bps, kind }: { arrow: string; label: string; bps: number | null; kind: 'up' | 'down' }) {
+const DASH = '—'
+
+function Meter({ label, value, sub }: { label: string; value: number | null; sub?: string }) {
+  const fraction = value === null ? 0 : Math.min(1, Math.max(0, value / 100))
+  const text = value === null ? DASH : `${formatPercent(value)} %`
   return (
-    <div className={`net__row net__row--${kind}`}>
-      <span className="net__arrow" aria-hidden="true">
-        {arrow}
-      </span>
-      <span className="net__label">{label}</span>
-      <span className="net__value mono">{bps === null ? '—' : formatRate(bps)}</span>
+    <div
+      className="meter"
+      role="meter"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={value === null ? undefined : Math.round(fraction * 100)}
+      aria-valuetext={value === null ? 'нет данных' : sub ? `${text}, ${sub}` : text}
+    >
+      <div className="kv">
+        <span className="kv__key">{label}</span>
+        {sub && <span className="kv__sub mono">{sub}</span>}
+        <span className="kv__val mono">{text}</span>
+      </div>
+      <div className="meter__track" aria-hidden="true">
+        <div className="meter__fill" style={{ transform: `scaleX(${fraction})` }} />
+      </div>
     </div>
   )
 }
 
 export function SystemPanel() {
   const metrics = useSwyvorn((s) => s.metrics)
-  const netHistory = useSwyvorn((s) => s.netHistory)
-  const live = metrics !== null
+  const model = useSwyvorn((s) => s.info?.model ?? null)
 
   return (
-    <Panel
-      index="03"
-      title="СИСТЕМА"
-      className="sys"
-      aside={
-        <span className={live ? 'sys__live sys__live--on' : 'sys__live'}>
-          <span className="sys__live-dot" aria-hidden="true" />
-          {live ? '1 Гц' : 'НЕТ ДАННЫХ'}
-        </span>
-      }
-    >
+    <Section title="Система" className="sys">
       <div className="sys__body">
-        <div className="sys__gauges">
-          <Gauge
-            label="ЦП"
-            value={metrics?.cpu_percent ?? null}
-            caption={live ? 'загрузка' : '—'}
-          />
-          <Gauge
-            label="ОЗУ"
-            value={metrics?.ram_percent ?? null}
-            caption={metrics ? formatMemory(metrics.ram_used_mb, metrics.ram_total_mb) : '—'}
-          />
+        <Meter label="ЦП" value={metrics?.cpu_percent ?? null} />
+        <Meter
+          label="ОЗУ"
+          value={metrics?.ram_percent ?? null}
+          sub={metrics ? formatMemory(metrics.ram_used_mb, metrics.ram_total_mb) : undefined}
+        />
+
+        <div className="kv">
+          <span className="kv__key">Сеть</span>
+          {metrics ? (
+            <span className="kv__val kv__net mono">
+              <span className="kv__rate" title="Отдача">
+                <span className="kv__arrow" aria-hidden="true">
+                  ↑
+                </span>
+                <span className="visually-hidden">отдача</span>
+                {formatRate(metrics.net_up_bps)}
+              </span>
+              <span className="kv__rate" title="Приём">
+                <span className="kv__arrow" aria-hidden="true">
+                  ↓
+                </span>
+                <span className="visually-hidden">приём</span>
+                {formatRate(metrics.net_down_bps)}
+              </span>
+            </span>
+          ) : (
+            <span className="kv__val mono">{DASH}</span>
+          )}
         </div>
 
-        <div className="net">
-          <div className="net__rates">
-            <NetRow arrow="↑" label="Отдача" bps={metrics?.net_up_bps ?? null} kind="up" />
-            <NetRow arrow="↓" label="Приём" bps={metrics?.net_down_bps ?? null} kind="down" />
+        <div className="kv">
+          <span className="kv__key">Ядро работает</span>
+          <span className="kv__val mono">{metrics ? formatUptime(metrics.uptime_s) : DASH}</span>
+        </div>
+
+        {model && (
+          <div className="kv">
+            <span className="kv__key">Модель</span>
+            <span className="kv__val kv__model mono" title={model}>
+              {model}
+            </span>
           </div>
-          <Sparkline history={netHistory} />
-        </div>
-
-        <div className="sys__row">
-          <span className="sys__key">Ядро работает</span>
-          <span className="sys__val mono">{metrics ? formatUptime(metrics.uptime_s) : '—'}</span>
-        </div>
-
-        <BigClock />
+        )}
       </div>
-    </Panel>
+    </Section>
   )
 }

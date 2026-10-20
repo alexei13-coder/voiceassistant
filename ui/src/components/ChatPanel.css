@@ -1,3 +1,9 @@
+/* Лента диалога: иерархия только цветом текста и отступами, без пузырей и полос. */
+
+.chat {
+  position: relative;
+}
+
 .chat__feed {
   flex: 1 1 auto;
   min-height: 0;
@@ -5,138 +11,116 @@
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px 16px 18px 14px;
+  gap: 20px;
+  /* сверху — запас под затухание маски, справа — под полосу прокрутки */
+  padding: 6px 10px 20px 0;
+  scrollbar-color: transparent transparent;
+}
+
+.chat__feed:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .msg {
   position: relative;
-  padding: 2px 0 2px 12px;
-  border-left: 1px solid var(--line);
-  animation: fade-up var(--dur-slow) var(--ease) both;
+  animation: fade-in var(--dur) var(--ease) both;
 }
 
-.msg--assistant {
-  border-left-color: var(--cyan-deep);
-}
-
-.msg--user {
-  padding: 8px 10px 9px 12px;
-  border-left-color: var(--blue);
-  background: linear-gradient(90deg, var(--line-faint), transparent 85%);
-}
-
-.msg--system {
-  border-left-style: dashed;
-  border-left-color: var(--text-faint);
+/* Ответ стоит ближе к вопросу, чем следующий обмен — к предыдущему */
+.msg--user + .msg--assistant {
+  margin-top: -8px;
 }
 
 .msg__meta {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 3px;
+  min-height: 16px;
+  margin-bottom: 4px;
 }
 
 .msg__role {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  color: var(--cyan);
-}
-
-.msg--user .msg__role {
-  color: var(--blue);
-}
-
-.msg--system .msg__role {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   color: var(--text-faint);
 }
 
 .msg__time {
-  font-size: 10px;
+  margin-left: auto;
+  font-size: 10.5px;
   color: var(--text-faint);
 }
 
 .msg__text {
   margin: 0;
-  font-size: 13.5px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   color: var(--text);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  text-wrap: pretty;
   user-select: text;
+}
+
+.msg--user .msg__text {
+  color: var(--text-dim);
 }
 
 .msg--system .msg__text {
   font-size: 12.5px;
-  color: var(--text-dim);
+  font-style: italic;
+  color: var(--text-faint);
 }
 
 .msg__caret {
   display: inline-block;
-  width: 0.5em;
+  width: 2px;
   height: 1.05em;
-  margin-left: 2px;
-  vertical-align: -0.17em;
-  background: var(--cyan);
-  box-shadow: var(--glow-cyan);
+  margin-left: 3px;
+  vertical-align: -0.16em;
+  border-radius: 1px;
+  background: var(--text-dim);
   animation: blink 1s steps(1) infinite;
 }
 
 .chat__empty {
-  margin: auto;
-  max-width: 240px;
-  text-align: center;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
   color: var(--text-faint);
 }
 
-.chat__empty-icon {
-  width: 28px;
-  height: 28px;
-  color: var(--cyan-deep);
-}
-
-.chat__empty-title {
-  margin: 10px 0 4px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.chat__empty-hint {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-
-.chat__empty-hint kbd {
-  font-size: 11px;
-  color: var(--cyan-soft);
-}
+/* ---------- плашка «новые сообщения» ---------- */
 
 .chat__new {
   position: absolute;
   left: 50%;
-  bottom: 14px;
+  bottom: 12px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 13px;
-  background: var(--panel-solid);
-  box-shadow: var(--glow-cyan);
-  color: var(--cyan-soft);
-  font-size: 11.5px;
+  height: 28px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
   transform: translateX(-50%);
-  animation: fade-up var(--dur) var(--ease) both;
+  animation: fade-in var(--dur) var(--ease) both;
+  transition:
+    color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
 }
 
 .chat__new:hover {
-  background: var(--panel-hover);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.chat__new .icon {
+  width: 13px;
+  height: 13px;
 }

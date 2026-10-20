@@ -1,348 +1,113 @@
+/* Показатели системы: подпись слева, моноширинное значение справа, полоса 2 px. */
+
 .sys {
   flex: none;
-}
-
-.sys__live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sys__live-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--text-faint);
-}
-
-.sys__live--on {
-  color: var(--green);
-}
-
-.sys__live--on .sys__live-dot {
-  background: var(--green);
-  box-shadow: 0 0 6px var(--green);
-  animation: blink 2s steps(1) infinite;
+  margin-top: 20px;
+  padding: 20px 0 16px;
+  border-top: 1px solid var(--hairline);
 }
 
 .sys__body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 14px 16px 16px;
+  gap: 12px;
 }
 
-/* ---------- шкалы ---------- */
-
-.sys__gauges {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.kv {
+  display: flex;
+  align-items: baseline;
   gap: 10px;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 18px;
 }
 
-.gauge {
-  --tone: var(--cyan);
-  position: relative;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+.kv__key {
+  flex: none;
+  color: var(--text-dim);
 }
 
-.gauge--warn {
-  --tone: var(--amber);
+.kv__sub {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-faint);
 }
 
-.gauge--critical {
-  --tone: var(--red);
+.kv__val {
+  margin-left: auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
 }
 
-.gauge__svg {
-  width: 100%;
-  max-width: 118px;
-  aspect-ratio: 1;
-  overflow: visible;
-}
-
-.gauge__tick {
-  stroke: var(--line-strong);
-  stroke-width: 0.8;
-  opacity: 0.5;
-}
-
-.gauge__tick--major {
-  stroke: var(--cyan);
-  opacity: 0.7;
-}
-
-.gauge__track {
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 5;
-}
-
-.gauge__value {
-  fill: none;
-  stroke: var(--tone);
-  stroke-width: 5;
-  filter: drop-shadow(0 0 3px var(--tone));
-  transition:
-    stroke-dasharray var(--dur-slow) var(--ease),
-    stroke var(--dur) var(--ease);
-}
-
-.gauge--empty .gauge__track {
-  stroke-dasharray: 3 3;
-}
-
-.gauge__readout {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  aspect-ratio: 1;
-  max-width: 118px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.gauge__figure {
+.kv__net {
   display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-}
-
-.gauge__number {
-  font-size: 26px;
-  font-weight: 400;
-  line-height: 1;
-  color: var(--text);
-}
-
-.gauge--empty .gauge__number {
-  color: var(--text-faint);
-}
-
-.gauge__unit {
-  font-size: 12px;
-  color: var(--text-dim);
-}
-
-.gauge__label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  margin-top: -14px;
-}
-
-.gauge__name {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.24em;
-  padding-left: 0.24em;
-  color: var(--cyan-soft);
-}
-
-.gauge__caption {
-  font-size: 10px;
-  color: var(--text-faint);
-  white-space: nowrap;
-}
-
-/* ---------- сеть ---------- */
-
-.net {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
   gap: 14px;
-  padding: 10px 0;
-  border-top: 1px solid var(--line-faint);
-  border-bottom: 1px solid var(--line-faint);
 }
 
-.net__rates {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* Фиксированная ширина: скачущие числа не двигают соседнее значение */
+.kv__rate {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 10ch;
 }
 
-.net__row {
-  display: grid;
-  grid-template-columns: 12px 54px 74px;
-  align-items: baseline;
-  font-size: 11.5px;
+.kv__arrow {
+  color: var(--text-faint);
 }
 
-.net__arrow {
-  font-family: var(--font-mono);
-  color: var(--cyan);
-}
-
-.net__row--up .net__arrow {
-  color: var(--blue);
-}
-
-.net__label {
+.kv__model {
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--text-dim);
 }
 
-.net__value {
-  font-size: 12px;
-  color: var(--text);
-  text-align: right;
-  white-space: nowrap;
-}
+/* ---------- полоса загрузки ---------- */
 
-.spark {
-  display: block;
-  width: 100%;
-  height: 40px;
-}
-
-.spark__grid {
-  stroke: var(--line-faint);
-  stroke-dasharray: 2 3;
-  vector-effect: non-scaling-stroke;
-}
-
-.spark__down {
-  fill: none;
-  stroke: var(--cyan);
-  stroke-width: 1.2;
-  vector-effect: non-scaling-stroke;
-}
-
-.spark__up {
-  fill: none;
-  stroke: var(--blue);
-  stroke-width: 1;
-  stroke-dasharray: 3 2;
-  vector-effect: non-scaling-stroke;
-  opacity: 0.85;
-}
-
-.spark__empty {
-  stroke: var(--line);
-  stroke-dasharray: 3 3;
-  vector-effect: non-scaling-stroke;
-}
-
-/* ---------- строки и часы ---------- */
-
-.sys__row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 11.5px;
-}
-
-.sys__key {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.sys__val {
-  font-size: 13px;
-  color: var(--text);
-}
-
-.bigclock {
+.meter__track {
   position: relative;
-  padding: 12px 0 2px;
-  text-align: center;
-  border-top: 1px solid var(--line-faint);
+  height: 2px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--hairline);
 }
 
-.bigclock__time {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 34px;
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums;
-  color: var(--cyan-soft);
-  text-shadow: var(--glow-cyan);
-}
-
-.bigclock__date {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--text-dim);
-  letter-spacing: 0.04em;
-}
-
-/* Невысокое окно: панель компактнее, чтобы журналу действий осталось место */
-@media (max-height: 820px) {
-  .sys__body {
-    gap: 10px;
-    padding: 10px 14px 12px;
-  }
-
-  .gauge__svg,
-  .gauge__readout {
-    max-width: 88px;
-  }
-
-  .gauge__number {
-    font-size: 21px;
-  }
-
-  .gauge__label {
-    margin-top: -10px;
-  }
-
-  .net {
-    padding: 8px 0;
-  }
-
-  .spark {
-    height: 32px;
-  }
-
-  .bigclock {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-top: 10px;
-    text-align: left;
-  }
-
-  .bigclock__time {
-    font-size: 26px;
-  }
-
-  .bigclock__date {
-    max-width: 50%;
-    margin-top: 0;
-    font-size: 11.5px;
-    line-height: 1.35;
-    text-align: right;
-  }
+.meter__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 1px;
+  background: var(--text-dim);
+  transform-origin: left center;
+  transition: transform var(--dur) var(--ease);
 }
 
 @media (max-width: 1279px) {
-  .net {
-    grid-template-columns: 1fr;
+  .kv__sub {
+    display: none;
+  }
+
+  .kv__net {
     gap: 8px;
   }
 
-  .net__rates {
-    flex-direction: row;
-    justify-content: space-between;
+  .kv__rate {
+    min-width: 0;
+  }
+}
+
+@media (max-height: 780px) {
+  .sys {
+    margin-top: 14px;
+    padding: 14px 0 10px;
   }
 
-  .net__row {
-    grid-template-columns: 12px auto auto;
-    gap: 4px;
+  .sys__body {
+    gap: 9px;
   }
 }

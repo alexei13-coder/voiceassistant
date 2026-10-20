@@ -1,9 +1,7 @@
 // Форматирование чисел, времени и дат для HUD. Русская локаль задана вручную, а не через Intl:
 // так вывод одинаков в любом WebView2 и не зависит от языковых пакетов Windows.
 
-const WEEKDAYS_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 const WEEKDAYS_FULL = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота']
-const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']
 const MONTHS_GENITIVE = [
   'января',
   'февраля',
@@ -39,7 +37,7 @@ export function formatClock(date: Date): string {
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`
 }
 
-/** «20:41» — время сообщения в диалоге. */
+/** «20:41» — часы в верхней панели и время реплики в диалоге. */
 export function formatTimeShort(ms: number): string {
   const d = new Date(ms)
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
@@ -48,11 +46,6 @@ export function formatTimeShort(ms: number): string {
 /** «20:41:05» по метке времени в мс. */
 export function formatTimeLong(ms: number): string {
   return formatClock(new Date(ms))
-}
-
-/** «пн, 19 окт» */
-export function formatShortDate(date: Date): string {
-  return `${WEEKDAYS_SHORT[date.getDay()]}, ${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
 }
 
 /** «понедельник, 19 октября 2026» */

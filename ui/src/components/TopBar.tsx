@@ -1,22 +1,26 @@
-// Верхняя панель: знак, текущее состояние, статусы и (в Tauri) кнопки окна.
+// Верхняя панель: слева — знак SWYVORN, справа — тихий кластер статусов и (в Tauri) кнопки окна.
 // Фон панели — область перетаскивания окна (data-tauri-drag-region).
 
-import { CONNECTION_LABELS, STATE_COLOR_VARS } from '../labels'
+import { CONNECTION_LABELS, STATE_COLOR_VARS, STATE_WORDS } from '../labels'
 import { isTauri, windowControls } from '../platform/tauri'
-import { STATE_LABELS } from '../protocol'
 import { useSwyvorn } from '../store'
 import { TopClock } from './Clock'
 import { cssVars } from './cssVars'
-import { BrandMark, Icon } from './Icon'
+import { Icon } from './Icon'
 import './TopBar.css'
 
-function StateIndicator() {
+function Brand() {
   const state = useSwyvorn((s) => s.state)
   return (
-    <div className="topbar__state" data-tauri-drag-region style={cssVars({ '--state-color': STATE_COLOR_VARS[state] })}>
-      <span className="state-dot" aria-hidden="true" />
-      <span className="topbar__state-label" aria-live="polite">
-        {STATE_LABELS[state]}
+    <div className="topbar__brand" data-tauri-drag-region>
+      <span
+        className="state-dot"
+        style={cssVars({ '--state-color': STATE_COLOR_VARS[state] })}
+        title={`Состояние: ${STATE_WORDS[state]}`}
+        aria-hidden="true"
+      />
+      <span className="topbar__wordmark" data-tauri-drag-region>
+        SWYVORN
       </span>
     </div>
   )
@@ -24,23 +28,28 @@ function StateIndicator() {
 
 function CoreIndicator() {
   const connection = useSwyvorn((s) => s.connection)
+  const version = useSwyvorn((s) => s.info?.coreVersion ?? null)
+  const label = CONNECTION_LABELS[connection]
   return (
-    <span className={`chip chip--link chip--${connection}`} title={`Связь с ядром: ${CONNECTION_LABELS[connection]}`}>
-      <span className="chip__dot" aria-hidden="true" />
-      <span className="chip__text">{CONNECTION_LABELS[connection]}</span>
-      <span className="chip__short" aria-hidden="true">
-        ЯДРО
-      </span>
+    <span
+      className={`topbar__item topbar__link topbar__link--${connection}`}
+      title={`Связь с ядром: ${label}${version ? ` · версия ${version}` : ''}`}
+    >
+      <span className="topbar__dot" aria-hidden="true" />
+      <span className="visually-hidden">Ядро:</span>
+      {label}
     </span>
   )
 }
 
 function MicIndicator() {
   const muted = useSwyvorn((s) => s.muted)
+  const listening = useSwyvorn((s) => s.state === 'listening')
+  const label = muted ? 'Микрофон выключен' : listening ? 'Микрофон слушает' : 'Микрофон включён'
+  const mod = muted ? ' topbar__mic--muted' : listening ? ' topbar__mic--live' : ''
   return (
-    <span className={muted ? 'chip chip--mic chip--muted' : 'chip chip--mic'} title={muted ? 'Микрофон выключен' : 'Микрофон включён'}>
+    <span className={`topbar__item topbar__mic${mod}`} title={label} role="img" aria-label={label}>
       <Icon name={muted ? 'micOff' : 'mic'} />
-      <span className="chip__text">{muted ? 'МИК: ВЫКЛ' : 'МИК: ВКЛ'}</span>
     </span>
   )
 }
@@ -69,23 +78,16 @@ function WindowButtons() {
 
 export function TopBar() {
   const demo = useSwyvorn((s) => s.info?.demo ?? false)
-  const model = useSwyvorn((s) => s.info?.model ?? null)
   const inTauri = isTauri()
 
   return (
     <header className={inTauri ? 'topbar topbar--tauri' : 'topbar'} data-tauri-drag-region>
-      <div className="topbar__brand" data-tauri-drag-region>
-        <BrandMark className="topbar__mark" />
-        <span className="topbar__wordmark">SWYVORN</span>
-      </div>
-
-      <StateIndicator />
+      <Brand />
 
       <div className="topbar__status" data-tauri-drag-region>
-        {demo && <span className="chip chip--demo">ДЕМО</span>}
-        {model && (
-          <span className="chip chip--model" title={`Модель: ${model}`}>
-            {model}
+        {demo && (
+          <span className="topbar__item topbar__demo" title="Демо-режим: реальные действия не выполняются">
+            демо
           </span>
         )}
         <CoreIndicator />
