@@ -46,7 +46,10 @@ pub fn run() {
         ])
         .setup(|app| {
             let handle = app.handle();
-            handle.plugin(logging::plugin(handle))?;
+            // Без лога (например, папка данных недоступна для записи) ассистент всё равно работает.
+            if let Err(err) = handle.plugin(logging::plugin(handle)) {
+                eprintln!("Лог оболочки недоступен: {err}");
+            }
             log::info!("Джарвис {} запускается", app.package_info().version);
 
             let core = CoreManager::new(handle.clone())?;

@@ -107,18 +107,22 @@ float span(float x, float a, float b) {
   return clamp((x - a) / gPx + 0.5, 0.0, 1.0) * clamp((b - x) / gPx + 0.5, 0.0, 1.0);
 }
 
-// Дуга [s, s + l] в угловой системе ang ∈ [0, TAU); край сглажен по длине дуги на радиусе r.
-float arcMask(float ang, float s, float l, float r) {
+// Дуга [s, s + l] в угловой системе ang ∈ [0, TAU); край размыт на soft (доли R) по длине дуги на радиусе r.
+// soft = gPx — чёткий край линии; шире — мягкая маска для ореола, чтобы свечение не обрывалось ступенькой.
+float arcMask(float ang, float s, float l, float r, float soft) {
   if (l >= TAU) return 1.0;  // полная окружность — без шва на старте
   float rel = mod(ang - s, TAU);
   float d = rel < l ? min(rel, l - rel) : -min(rel - l, TAU - rel);
-  return clamp(d * r / gPx + 0.5, 0.0, 1.0);
+  return clamp(d * r / soft + 0.5, 0.0, 1.0);
 }
 
+// Штриховка дуги. На маленьком ядре штрихи в 2–3 пикселя дают муар, поэтому, когда шаг меньше
+// ~8 px, они плавно сливаются в сплошную линию средней яркости.
 float dashMask(float ang, float s, float dash, float r) {
   float local = mod(mod(ang - s, TAU), dash);
   float d = min(local, dash * ARC_DUTY - local);
-  return clamp(d * r / gPx + 0.5, 0.0, 1.0);
+  float crisp = clamp(d * r / gPx + 0.5, 0.0, 1.0);
+  return mix(ARC_DUTY * 0.85, crisp, smoothstep(5.0, 9.0, dash * r / gPx));
 }
 
 // Расстояние по дуге до ближайшего из n равномерных делений и номер деления.
@@ -210,20 +214,22 @@ void main() {
     float bandA = stroke(r - ARC_R_A, lw * 1.35);
     float glowA = exp(-abs(r - ARC_R_A) / 0.007);
     float segA = 0.0;
+    float haloA = 0.0;  // ореол — по мягкой маске без штриховки: общий для всего сегмента
     for (int i = 0; i < ARCS_A_N; i++) {
       vec3 s = ARCS_A[i];
-      float m = arcMask(aa, s.x, s.y, r);
-      if (s.z > 0.0) m *= dashMask(aa, s.x, s.z, r);
-      segA += m;
+      float m = arcMask(aa, s.x, s.y, r, gPx);
+      float dashed = step(0.0001, s.z);
+      segA += m * mix(1.0, dashMask(aa, s.x, s.z, r), dashed);
+      haloA += arcMask(aa, s.x, s.y, r, 0.03) * mix(1.0, ARC_DUTY, dashed);
     }
     float ab = mod(a - uRot.z, TAU);
     float bandB = stroke(r - ARC_R_B, lw * 0.5);
     float segB = 0.0;
     for (int i = 0; i < ARCS_B_N; i++) {
       vec3 s = ARCS_B[i];
-      segB += arcMask(ab, s.x, s.y, r);
+      segB += arcMask(ab, s.x, s.y, r, gPx);
     }
-    col += c * (segA * (bandA * 1.9 + glowA * 0.22) + segB * bandB * 1.4) * rings;
+    col += c * (segA * bandA * 1.9 + haloA * glowA * 0.22 + segB * bandB * 1.4) * rings;
   }
 
   // 4. Столбики — круговой эквалайзер.
@@ -241,7 +247,9 @@ void main() {
     float along = span(r, BAR_IN, BAR_IN + len);
     float t = clamp((r - BAR_IN) / max(len, 1e-4), 0.0, 1.0);
     float body = stroke(d, hw) * along;
-    float glow = exp(-abs(d) / (hw * 2.2)) * along * 0.18;
+    // Ореол узкий (на границе ячейки < 1 %) и мягко гаснет за концами столбика — без «коробок» свечения.
+    float beyond = max(BAR_IN - r, 0.0) + max(r - BAR_IN - len, 0.0);
+    float glow = exp(-abs(d) / (hw * 1.5) - beyond / 0.005) * 0.2;
     float shade = mix(1.25, 0.75, t) + 0.5 * smoothstep(0.7, 1.0, t);
     col += mix(c, vec3(1.0), 0.12 * t) * (body * shade + glow) * rings;
   }
@@ -249,23 +257,26 @@ void main() {
   // 6. Отсчёт подтверждения: янтарная дуга тает от полной к пустой (по часовой от «12»).
   if (uCountdown.x > 0.001 && abs(r - COUNT_R) < 0.05) {
     float l = uCountdown.y * TAU;
-    float on = arcMask(cw, 0.0, l, r);
+    float on = arcMask(cw, 0.0, l, r, gPx);
+    float soft = arcMask(cw, 0.0, l, r, 0.03);
     float band = stroke(r - COUNT_R, lw * 1.2);
     float track = stroke(r - COUNT_R, lw * 0.45) * 0.22;
-    float head = exp(-max(l - cw, 0.0) * r / 0.025) * on;
+    // Яркая «голова» у тающего конца; на полном кольце (отсчёт не начат) её нет — иначе шов на «12».
+    float head = exp(-max(l - cw, 0.0) * r / 0.025) * on * (1.0 - smoothstep(0.97, 1.0, uCountdown.y));
     float glow = exp(-abs(r - COUNT_R) / 0.01) * 0.3;
     vec3 amber = uAmber * uCountdown.x * (1.0 - 0.55 * collapse);
-    col += amber * (band * (on * 1.8 + head * 1.6) + track + glow * (on + head));
+    col += amber * (band * (on * 1.8 + head * 1.6) + track + glow * (soft + head));
   }
 
   // 8. Выполняю: «догоняющая» дуга прогресса на том же радиусе.
   if (uChase.x > 0.001 && abs(r - COUNT_R) < 0.05) {
-    float on = arcMask(cw, uChase.y - uChase.z, uChase.z, r);
+    float on = arcMask(cw, uChase.y - uChase.z, uChase.z, r, gPx);
+    float soft = arcMask(cw, uChase.y - uChase.z, uChase.z, r, 0.03);
     float band = stroke(r - COUNT_R, lw * 1.0);
     float headAng = mod(uChase.y - cw, TAU);
     float head = exp(-headAng * r / 0.03) * on;
     float glow = exp(-abs(r - COUNT_R) / 0.01) * 0.3;
-    col += c * uChase.x * rings * (band * (on * 1.5 + head * 1.4) + glow * (on * 0.6 + head));
+    col += c * uChase.x * rings * (band * (on * 1.5 + head * 1.4) + glow * (soft * 0.6 + head));
   }
 
   // 5. Внешний лимб: шкала, редкие метки-«глифы» и треугольные риски по сторонам света.
@@ -292,9 +303,12 @@ void main() {
   if (uThink.x > 0.001 || uThink.z > 0.001) {
     float zone = smoothstep(THINK_IN, THINK_IN + 0.12, r) * (1.0 - smoothstep(THINK_OUT - 0.16, THINK_OUT, r));
     float behind = mod(uThink.y - cw, TAU);
-    // Хвост локатора: яркий у ведущего края и длинный едва заметный шлейф.
-    float wedge = (0.2 * exp(-behind * 4.0) + 0.05 * exp(-behind * 0.9)) * (1.0 - smoothstep(4.8, TAU, behind));
-    float edge = stroke(behind * r, lw * 0.6) * 0.55 + exp(-behind * r / 0.01) * 0.2;
+    // Хвост локатора: яркий у ведущего края и длинный едва заметный шлейф; передний край сглажен в 1 px.
+    float wedge = (0.26 * exp(-behind * 4.0) + 0.05 * exp(-behind * 0.9)) * (1.0 - smoothstep(4.8, TAU, behind));
+    wedge *= clamp(behind * r / gPx + 0.5, 0.0, 1.0);
+    // Ведущая линия — со знаком расстояния, чтобы сглаживание и ореол были с обеих сторон.
+    float sb = (behind < PI ? behind : behind - TAU) * r;
+    float edge = stroke(sb, lw * 0.6) * 0.45 + exp(-abs(sb) / 0.008) * 0.16 + exp(-behind * r / 0.012) * 0.08;
     col += c * uThink.x * zone * (wedge + edge) * rings;
     if (uThink.z > 0.001 && r > THINK_IN - 0.02 && r < THINK_OUT + 0.02) {
       float acc = 0.0;
@@ -316,7 +330,7 @@ void main() {
   if (flash > 0.001) {
     float lum = dot(col, vec3(0.299, 0.587, 0.114));
     col = mix(col, uRed * lum * 1.6, min(1.0, flash * 0.75));
-    col += uRed * flash * (0.5 * exp(-r * 3.5) + 0.12 * exp(-r * r * 5.0));
+    col += uRed * flash * (0.5 * exp(-r * 4.5) + 0.1 * exp(-r * r * 6.0));
     float sr = mix(0.24, 0.66, uShock.x);
     col += uRed * uShock.y * (stroke(r - sr, lw * 1.4) * 1.6 + exp(-abs(r - sr) / 0.015) * 0.35);
   }

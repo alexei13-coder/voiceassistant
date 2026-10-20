@@ -305,7 +305,9 @@ export class OrbModel {
     t[C.pulse] = inputs.confirmation?.expires_at == null ? 1 : 0
     t[C.turbulence] = look.turbulence
     t[C.breath] = look.breath
-    const stopHeld = inputs.lastStopAt !== null && wall - inputs.lastStopAt < STOP_HOLD_MS
+    // Отрицательный возраст (часы системы перевели назад, замороженное время лаборатории) — не удержание.
+    const sinceStop = inputs.lastStopAt === null ? Number.POSITIVE_INFINITY : wall - inputs.lastStopAt
+    const stopHeld = sinceStop >= 0 && sinceStop < STOP_HOLD_MS
     t[C.collapse] = stopHeld ? 1 : look.collapse
     t[C.motion] = inputs.reducedMotion ? REDUCED_MOTION : 1
   }

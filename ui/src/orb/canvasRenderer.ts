@@ -123,13 +123,15 @@ export function createCanvasRenderer(canvas: HTMLCanvasElement, theme: OrbTheme)
       ctx.strokeStyle = rgba(color, 0.6 * rings)
       ctx.stroke()
 
-      // Сегментные дуги.
+      // Сегментные дуги. Мелкие штрихи (шаг < 7 px) рисуются сплошной линией потусклее — как в шейдере.
       for (const [start, length, dash] of ARCS_A) {
-        ctx.setLineDash(dash > 0 ? [dash * ARC_DASH_DUTY * ARC_RADIUS_A, dash * (1 - ARC_DASH_DUTY) * ARC_RADIUS_A] : [])
+        const dashed = dash > 0 && dash * ARC_RADIUS_A * scale >= 7
+        const dim = dash > 0 && !dashed ? ARC_DASH_DUTY * 0.85 : 1
+        ctx.setLineDash(dashed ? [dash * ARC_DASH_DUTY * ARC_RADIUS_A, dash * (1 - ARC_DASH_DUTY) * ARC_RADIUS_A] : [])
         ctx.beginPath()
         ctx.arc(0, 0, ARC_RADIUS_A, f.arcAngleA + start, f.arcAngleA + start + length)
         ctx.lineWidth = lw * 2.7
-        ctx.strokeStyle = rgba(color, 0.9 * rings)
+        ctx.strokeStyle = rgba(color, 0.9 * dim * rings)
         ctx.stroke()
       }
       ctx.setLineDash([])

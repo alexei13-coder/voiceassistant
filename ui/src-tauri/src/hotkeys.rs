@@ -76,14 +76,14 @@ pub fn apply(app: &AppHandle, hotkeys: &Hotkeys) {
         (Binding::Screen, &hotkeys.screen),
     ];
     for (binding, combo) in bindings {
-        match register(app, binding, combo) {
+        match register(app, binding, combo, &registered.shortcuts) {
             Ok(shortcut) => registered.shortcuts.push(shortcut),
             Err(error) => {
                 all_ok = false;
                 report_failure(app, binding, combo, error);
                 if binding == Binding::Stop {
                     let fallback = &hotkeys.stop_fallback;
-                    match register(app, Binding::StopFallback, fallback) {
+                    match register(app, Binding::StopFallback, fallback, &registered.shortcuts) {
                         Ok(shortcut) => registered.shortcuts.push(shortcut),
                         Err(error) => report_failure(app, Binding::StopFallback, fallback, error),
                     }
@@ -95,23 +95,38 @@ pub fn apply(app: &AppHandle, hotkeys: &Hotkeys) {
 }
 
 /// Разбор строки вида `Ctrl+Alt+J` (регистр и пробелы вокруг `+` не важны).
+/// Текст ошибки уходит ядру в `hotkey_error`, поэтому он по-русски; подробности библиотеки — в лог.
 fn parse(combo: &str) -> Result<Shortcut, String> {
     let combo = combo.trim();
     if combo.is_empty() {
         return Err("сочетание не задано".into());
     }
-    combo
-        .parse::<Shortcut>()
-        .map_err(|err| format!("не удалось разобрать сочетание: {err}"))
+    combo.parse::<Shortcut>().map_err(|err| {
+        log::debug!("Сочетание «{combo}» не разобрано: {err}");
+        "неизвестная клавиша или неверный формат сочетания".into()
+    })
 }
 
-fn register(app: &AppHandle, binding: Binding, combo: &str) -> Result<Shortcut, String> {
+/// `taken` — сочетания, уже назначенные в этом проходе: повтор в настройках — ошибка настроек,
+/// а не занятость другой программой, и сообщать о нём надо иначе.
+fn register(
+    app: &AppHandle,
+    binding: Binding,
+    combo: &str,
+    taken: &[Shortcut],
+) -> Result<Shortcut, String> {
     let shortcut = parse(combo)?;
+    if taken.contains(&shortcut) {
+        return Err("сочетание уже назначено другому действию".into());
+    }
     app.global_shortcut()
         .on_shortcut(shortcut, move |app, _shortcut, event| {
             on_event(app, binding, event.state);
         })
-        .map_err(|err| err.to_string())?;
+        .map_err(|err| {
+            log::warn!("Сочетание «{combo}» отклонено системой: {err}");
+            String::from("система не приняла сочетание — возможно, оно занято другой программой")
+        })?;
     log::info!("Горячая клавиша {} = {combo}", binding.name());
     Ok(shortcut)
 }

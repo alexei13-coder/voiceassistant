@@ -47,11 +47,11 @@ describe('модель ядра', () => {
   it('смена состояния плавная: цвет не «щёлкает», а доезжает за ~0,4 с', () => {
     const model = new OrbModel(THEME)
     model.update(inputs('idle'), SILENCE, 0, WALL)
-    let t = advance(model, inputs('listening'), 0, 1 / 60)
+    const t = advance(model, inputs('listening'), 0, 1 / 60)
     const g = model.frame.color[1]
     expect(g).toBeGreaterThan(0.5)
     expect(g).toBeLessThan(0.55)
-    t = advance(model, inputs('listening'), t, 0.6)
+    advance(model, inputs('listening'), t, 0.6)
     expect(model.frame.color[1]).toBeCloseTo(0.9, 2)
   })
 
@@ -78,9 +78,9 @@ describe('модель ядра', () => {
     const model = new OrbModel(THEME)
     model.update(inputs('idle'), SILENCE, 0, WALL)
     const error = inputs('error', { stateChangedAt: WALL + 50 })
-    let t = advance(model, error, 0, 0.1)
+    const t = advance(model, error, 0, 0.1)
     expect(model.frame.flash).toBeGreaterThan(0.8)
-    t = advance(model, error, t, 1.2)
+    advance(model, error, t, 1.2)
     expect(model.frame.flash).toBeLessThan(0.05)
   })
 
@@ -88,10 +88,17 @@ describe('модель ядра', () => {
     const model = new OrbModel(THEME)
     model.update(inputs('idle'), SILENCE, 0, WALL)
     const stop = inputs('idle', { lastStopAt: WALL })
-    let t = advance(model, stop, 0, 0.25)
+    const t = advance(model, stop, 0, 0.25)
     expect(model.frame.collapse).toBeGreaterThan(0.9)
-    t = advance(model, stop, t, STOP_HOLD_MS / 1000 + 1.2)
+    advance(model, stop, t, STOP_HOLD_MS / 1000 + 1.2)
     expect(model.frame.collapse).toBeLessThan(0.02)
+  })
+
+  it('«Стоп» из будущего (часы перевели назад) не держит ядро сжатым', () => {
+    const model = new OrbModel(THEME)
+    model.update(inputs('idle'), SILENCE, 0, WALL)
+    advance(model, inputs('idle', { lastStopAt: WALL + 60_000 }), 0, 1)
+    expect(model.frame.collapse).toBeLessThan(0.01)
   })
 
   it('отсчёт подтверждения: доля оставшегося времени и пульс до начала отсчёта', () => {

@@ -14,16 +14,19 @@ pub struct CoreCommand {
 
 #[cfg(not(debug_assertions))]
 pub fn resolve(app: &AppHandle) -> Result<CoreCommand, String> {
+    use std::path::Path;
     use tauri::{path::BaseDirectory, Manager};
 
+    // Папка `core/` — из tauri.bundle.conf.json; путь собирается по компонентам,
+    // чтобы на Windows не смешивать `/` и `\`.
     const CORE_EXE: &str = if cfg!(windows) {
-        "core/jarvis-core.exe"
+        "jarvis-core.exe"
     } else {
-        "core/jarvis-core"
+        "jarvis-core"
     };
     let program = app
         .path()
-        .resolve(CORE_EXE, BaseDirectory::Resource)
+        .resolve(Path::new("core").join(CORE_EXE), BaseDirectory::Resource)
         .map_err(|err| format!("Не найдена папка ресурсов приложения: {err}"))?;
     if !program.is_file() {
         return Err(format!(
