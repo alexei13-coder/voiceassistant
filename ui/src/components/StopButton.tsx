@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { stopController } from '../core/stop'
 import { formatHotkey } from '../format'
 import { DEFAULT_STOP_HOTKEY } from '../labels'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { Icon } from './Icon'
 
 interface Pulse {
@@ -13,7 +13,7 @@ interface Pulse {
 }
 
 export function StopButton() {
-  const hotkey = useJarvis((s) => s.info?.hotkeys.stop || DEFAULT_STOP_HOTKEY)
+  const hotkey = useSwyvorn((s) => s.info?.hotkeys.stop || DEFAULT_STOP_HOTKEY)
   // seq как key перезапускает CSS-вспышку при каждом нажатии
   const [pulse, setPulse] = useState<Pulse | null>(null)
 

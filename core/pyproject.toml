@@ -1,7 +1,7 @@
 [project]
-name = "jarvis-core"
+name = "swyvorn-core"
 version = "0.1.0"
-description = "Ядро персонального голосового ассистента «Джарвис»"
+description = "Ядро персонального голосового ассистента «SWYVORN»"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "websockets>=17.3,<18",
@@ -20,14 +20,14 @@ dev = [
 ]
 
 [project.scripts]
-jarvis-core = "jarvis.__main__:main"
+swyvorn-core = "swyvorn.__main__:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["jarvis"]
+packages = ["swyvorn"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

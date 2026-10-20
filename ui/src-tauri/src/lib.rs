@@ -1,4 +1,4 @@
-//! Rust-оболочка «Джарвиса»: окно HUD, трей, глобальные горячие клавиши, автозапуск,
+//! Rust-оболочка SWYVORN: окно HUD, трей, глобальные горячие клавиши, автозапуск,
 //! запуск и аварийная остановка Python-ядра. Решений оболочка не принимает — всё решает ядро.
 
 mod commands;
@@ -50,7 +50,7 @@ pub fn run() {
             if let Err(err) = handle.plugin(logging::plugin(handle)) {
                 eprintln!("Лог оболочки недоступен: {err}");
             }
-            log::info!("Джарвис {} запускается", app.package_info().version);
+            log::info!("SWYVORN {} запускается", app.package_info().version);
 
             let core = CoreManager::new(handle.clone())?;
             app.manage(Arc::clone(&core));

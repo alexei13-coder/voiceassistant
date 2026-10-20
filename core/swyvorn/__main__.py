@@ -1,4 +1,4 @@
-"""Точка входа: python -m jarvis."""
+"""Точка входа: python -m swyvorn."""
 
 from __future__ import annotations
 

@@ -3,7 +3,7 @@
 import type { ActionDecision, ActionStatus, AssistantState, ChatMessage, CoreProcessStatus, Risk } from './protocol'
 import type { ConnectionStatus } from './store'
 
-export const DEFAULT_ASSISTANT_NAME = 'Джарвис'
+export const DEFAULT_ASSISTANT_NAME = 'SWYVORN'
 export const DEFAULT_ACTIVATE_HOTKEY = 'Ctrl+Alt+J'
 export const DEFAULT_STOP_HOTKEY = 'Ctrl+Alt+Escape'
 

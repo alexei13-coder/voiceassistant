@@ -1,10 +1,10 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Запуск Джарвиса для разработки на Windows: проверка инструментов, зависимости, npm run tauri dev.
+    Запуск SWYVORN для разработки на Windows: проверка инструментов, зависимости, npm run tauri dev.
 .DESCRIPTION
     Отладочная оболочка Tauri сама запускает ядро из исходников через uv
-    (uv run python -m jarvis --dev), поэтому отдельно ядро запускать не нужно.
+    (uv run python -m swyvorn --dev), поэтому отдельно ядро запускать не нужно.
     Удобнее всего запускать двойным щелчком по scripts\start-dev.bat.
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\start-dev.ps1

@@ -45,7 +45,7 @@ const MAX_ACTIONS = 300
 const MAX_NOTICES = 4
 const NET_HISTORY = 60
 
-export interface JarvisStore {
+export interface SwyvornStore {
   connection: ConnectionStatus
   coreProcess: CoreProcessStatus | null
   coreProcessMessage: string | null
@@ -89,7 +89,7 @@ function upsertById<T extends { id: string }>(list: T[], item: T, max: number): 
   return next.length > max ? next.slice(next.length - max) : next
 }
 
-export const useJarvis = create<JarvisStore>()((set, get) => ({
+export const useSwyvorn = create<SwyvornStore>()((set, get) => ({
   connection: 'connecting',
   coreProcess: null,
   coreProcessMessage: null,

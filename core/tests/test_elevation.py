@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from jarvis.api.control import StdoutChannel
-from jarvis.cli import ExitCode
-from jarvis.platform.elevation import ELEVATED_MESSAGE, check_elevation
+from swyvorn.api.control import StdoutChannel
+from swyvorn.cli import ExitCode
+from swyvorn.platform.elevation import ELEVATED_MESSAGE, check_elevation
 
 
 def test_windows_admin_is_refused() -> None:

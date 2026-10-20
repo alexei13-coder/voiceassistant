@@ -8,10 +8,10 @@ import { ConnectionBanner } from './components/ConnectionBanner'
 import { Notices } from './components/Notices'
 import { SystemPanel } from './components/SystemPanel'
 import { TopBar } from './components/TopBar'
-import { useJarvis } from './store'
+import { useSwyvorn } from './store'
 
 export function App() {
-  const reducedMotion = useJarvis((s) => s.reducedMotion)
+  const reducedMotion = useSwyvorn((s) => s.reducedMotion)
   return (
     <div className="hud" data-reduced-motion={reducedMotion || undefined}>
       <TopBar />

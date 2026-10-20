@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.logging_setup import REDACTED, SecretRedactor, setup_logging
+from swyvorn.logging_setup import REDACTED, SecretRedactor, setup_logging
 
 SECRET_TOKEN = "ipc-Token-Value-42xyz"
 API_KEY = "sk-ant-api03-AbCdEf0123456789_-zz"
@@ -34,7 +34,7 @@ def logged(
     setup_logging(level="DEBUG", log_file=log_file, stream=stream, redactor=redactor)
     yield stream, log_file
     root = logging.getLogger()
-    for handler in [h for h in root.handlers if h.get_name() == "jarvis"]:
+    for handler in [h for h in root.handlers if h.get_name() == "swyvorn"]:
         root.removeHandler(handler)
         handler.close()
     root.setLevel(logging.WARNING)
@@ -47,7 +47,7 @@ def logged(
         (f"ключ {API_KEY}", API_KEY),
         ("ANTHROPIC_API_KEY=abc123secret", "abc123secret"),
         ("api-key: qwerty987", "qwerty987"),
-        ("JARVIS_IPC_TOKEN=zzz111", "zzz111"),
+        ("SWYVORN_IPC_TOKEN=zzz111", "zzz111"),
         ("{'token': 'tok-in-repr'}", "tok-in-repr"),
         ('{"password": "hunter2"}', "hunter2"),
         ("client_secret=s3cr3t&x=1", "s3cr3t"),
@@ -88,7 +88,7 @@ def test_redact_values_skips_key_value_heuristic(redactor: SecretRedactor) -> No
 
 def test_log_message_and_args_redacted_in_all_handlers(logged: tuple[io.StringIO, Path]) -> None:
     stream, log_file = logged
-    logging.getLogger("jarvis.test").info("токен=%s и ключ %s", SECRET_TOKEN, API_KEY)
+    logging.getLogger("swyvorn.test").info("токен=%s и ключ %s", SECRET_TOKEN, API_KEY)
     for handler in logging.getLogger().handlers:
         handler.flush()
     for text in (stream.getvalue(), log_file.read_text(encoding="utf-8")):
@@ -102,7 +102,7 @@ def test_traceback_redacted(logged: tuple[io.StringIO, Path]) -> None:
     try:
         raise ValueError(f"плохой токен {SECRET_TOKEN} api_key={API_KEY}")
     except ValueError:
-        logging.getLogger("jarvis.test").exception("сбой")
+        logging.getLogger("swyvorn.test").exception("сбой")
     for handler in logging.getLogger().handlers:
         handler.flush()
     for text in (stream.getvalue(), log_file.read_text(encoding="utf-8")):
@@ -124,12 +124,12 @@ def test_uncaught_exception_hook_goes_through_filter(logged: tuple[io.StringIO, 
 
 def test_bad_format_args_do_not_leak(logged: tuple[io.StringIO, Path]) -> None:
     stream, _ = logged
-    logging.getLogger("jarvis.test").warning("%d", SECRET_TOKEN)
+    logging.getLogger("swyvorn.test").warning("%d", SECRET_TOKEN)
     assert SECRET_TOKEN not in stream.getvalue()
 
 
 def test_never_writes_to_stdout(logged: tuple[io.StringIO, Path], capsys: pytest.CaptureFixture[str]) -> None:
-    logging.getLogger("jarvis.test").error("ошибка для проверки")
+    logging.getLogger("swyvorn.test").error("ошибка для проверки")
     assert capsys.readouterr().out == ""
 
 
@@ -139,7 +139,7 @@ def test_setup_is_idempotent(
     setup_logging(
         level="INFO", log_file=tmp_path / "logs" / "core.log", stream=io.StringIO(), redactor=redactor
     )
-    ours = [h for h in logging.getLogger().handlers if h.get_name() == "jarvis"]
+    ours = [h for h in logging.getLogger().handlers if h.get_name() == "swyvorn"]
     assert len(ours) == 2
 
 
@@ -156,6 +156,6 @@ def test_unwritable_log_file_falls_back_to_stderr(
         assert "Файл журнала недоступен" in stream.getvalue()
     finally:
         root = logging.getLogger()
-        for handler in [h for h in root.handlers if h.get_name() == "jarvis"]:
+        for handler in [h for h in root.handlers if h.get_name() == "swyvorn"]:
             root.removeHandler(handler)
             handler.close()

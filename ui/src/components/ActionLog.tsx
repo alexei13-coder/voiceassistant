@@ -4,7 +4,7 @@ import { memo, useMemo } from 'react'
 import { formatDuration, formatTimeLong } from '../format'
 import { ACTION_DECISION_LABELS, ACTION_STATUS_LABELS, RISK_LABELS } from '../labels'
 import type { ActionEntry, ActionStatus } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { Icon, type IconName } from './Icon'
 import { Panel } from './Panel'
 import './ActionLog.css'
@@ -55,7 +55,7 @@ const ActionItem = memo(function ActionItem({ entry }: { entry: ActionEntry }) {
 })
 
 export function ActionLog() {
-  const actions = useJarvis((s) => s.actions)
+  const actions = useSwyvorn((s) => s.actions)
   const newestFirst = useMemo(() => actions.slice().reverse(), [actions])
 
   return (

@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from jarvis import metrics as metrics_module
-from jarvis.metrics import MetricsSampler
-from jarvis.protocol import MetricsMessage
+from swyvorn import metrics as metrics_module
+from swyvorn.metrics import MetricsSampler
+from swyvorn.protocol import MetricsMessage
 
 
 def test_sample_has_all_fields_in_sane_ranges() -> None:

@@ -26,7 +26,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(include_image!("icons/tray.png"))
-        .tooltip("Джарвис")
+        .tooltip("SWYVORN")
         .menu(&menu)
         // Левый клик открывает окно, меню — по правому.
         .show_menu_on_left_click(false)

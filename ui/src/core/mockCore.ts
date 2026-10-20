@@ -14,7 +14,7 @@ import {
   type Hotkeys,
   type ServerMessage,
 } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { attachLocalCore } from './connection'
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
@@ -166,7 +166,7 @@ export class MockCore {
       core_version: '0.1.0-mock',
       state: this.state,
       demo: true,
-      assistant_name: 'Джарвис',
+      assistant_name: 'SWYVORN',
       address_form: 'сэр',
       model: 'claude-opus-5-5',
       hotkeys: HOTKEYS,
@@ -327,7 +327,7 @@ export class MockCore {
       await sleep(4000, signal)
       this.setState('listening')
       await sleep(3000, signal)
-      this.chat('user', 'Джарвис, какая сегодня погода?')
+      this.chat('user', 'SWYVORN, какая сегодня погода?')
       this.setState('thinking')
       await sleep(2500, signal)
       this.setState('speaking')
@@ -610,9 +610,9 @@ export class MockCore {
 
 /** Точка входа для main.tsx: имитация пишет в store, команды UI идут в неё же. */
 export function startMockCore(search: string): MockCore {
-  const core = new MockCore((msg) => useJarvis.getState().applyServerMessage(msg), parseMockOptions(search))
+  const core = new MockCore((msg) => useSwyvorn.getState().applyServerMessage(msg), parseMockOptions(search))
   attachLocalCore((msg) => core.handle(msg))
-  useJarvis.getState().setConnection('connected')
+  useSwyvorn.getState().setConnection('connected')
   core.start()
   return core
 }

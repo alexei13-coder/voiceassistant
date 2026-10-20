@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ServerMessage } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { MockCore, parseMockOptions, speechLevel, type MockOptions } from './mockCore'
 
-const initialStore = useJarvis.getState()
+const initialStore = useSwyvorn.getState()
 
 function startCore(options: MockOptions) {
   const sent: ServerMessage[] = []
   const core = new MockCore((msg) => {
     sent.push(msg)
-    useJarvis.getState().applyServerMessage(msg)
+    useSwyvorn.getState().applyServerMessage(msg)
   }, options)
   core.start()
   return { core, sent }
@@ -40,7 +40,7 @@ describe('speechLevel', () => {
 describe('MockCore', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    useJarvis.setState(initialStore, true)
+    useSwyvorn.setState(initialStore, true)
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -49,19 +49,19 @@ describe('MockCore', () => {
   it('начинает с hello в демо-режиме, история сети заполнена, метрики раз в секунду', () => {
     const { core, sent } = startCore({ freezeState: 'idle', confirm: false })
     expect(sent[0].type).toBe('hello')
-    const s = useJarvis.getState()
+    const s = useSwyvorn.getState()
     expect(s.info?.demo).toBe(true)
     expect(s.messages.length).toBeGreaterThan(0)
     expect(s.actions.length).toBeGreaterThan(0)
     expect(s.netHistory).toHaveLength(59)
 
     vi.advanceTimersByTime(3000)
-    const m = useJarvis.getState().metrics
+    const m = useSwyvorn.getState().metrics
     expect(m).not.toBeNull()
     expect(m!.cpu_percent).toBeGreaterThanOrEqual(0)
     expect(m!.cpu_percent).toBeLessThanOrEqual(100)
     expect(m!.ram_used_mb).toBeLessThan(m!.ram_total_mb)
-    expect(useJarvis.getState().netHistory).toHaveLength(60)
+    expect(useSwyvorn.getState().netHistory).toHaveLength(60)
     core.dispose()
   })
 
@@ -72,32 +72,32 @@ describe('MockCore', () => {
     const levels = sent.slice(before).filter((m) => m.type === 'audio_level')
     expect(levels.length).toBeGreaterThanOrEqual(29)
     expect(levels.every((m) => m.type === 'audio_level' && m.source === 'mic')).toBe(true)
-    expect(useJarvis.getState().state).toBe('listening')
+    expect(useSwyvorn.getState().state).toBe('listening')
     core.dispose()
   })
 
   it('подтверждение: вопрос → отсчёт → неверный nonce отвергается → «да» выполняет демо', async () => {
     const { core } = startCore({ freezeState: 'awaiting_confirmation', confirm: true })
-    let c = useJarvis.getState().confirmation
+    let c = useSwyvorn.getState().confirmation
     expect(c).not.toBeNull()
     expect(c!.expires_at).toBeNull()
     expect(c!.demo).toBe(true)
 
     await vi.advanceTimersByTimeAsync(1500)
-    c = useJarvis.getState().confirmation
+    c = useSwyvorn.getState().confirmation
     expect(c!.expires_at).toBeGreaterThan(Date.now())
 
     core.handle({ type: 'confirm', action_id: c!.action_id, nonce: 'wrong', decision: 'yes' })
-    expect(useJarvis.getState().confirmation).not.toBeNull()
-    expect(useJarvis.getState().notices.at(-1)?.code).toBe('stale_confirmation')
+    expect(useSwyvorn.getState().confirmation).not.toBeNull()
+    expect(useSwyvorn.getState().notices.at(-1)?.code).toBe('stale_confirmation')
 
     core.handle({ type: 'confirm', action_id: c!.action_id, nonce: c!.nonce, decision: 'yes' })
-    expect(useJarvis.getState().confirmation).toBeNull()
+    expect(useSwyvorn.getState().confirmation).toBeNull()
     await vi.advanceTimersByTimeAsync(0)
-    expect(useJarvis.getState().state).toBe('executing')
+    expect(useSwyvorn.getState().state).toBe('executing')
 
     await vi.advanceTimersByTimeAsync(1500)
-    const entry = useJarvis.getState().actions.find((a) => a.id === c!.action_id)
+    const entry = useSwyvorn.getState().actions.find((a) => a.id === c!.action_id)
     expect(entry?.status).toBe('ok')
     expect(entry?.decision).toBe('confirmed_button')
     expect(entry?.detail).toBe('Демо: ничего не удалялось')
@@ -106,41 +106,41 @@ describe('MockCore', () => {
 
   it('без ответа подтверждение истекает', async () => {
     const { core } = startCore({ freezeState: 'awaiting_confirmation', confirm: true })
-    const id = useJarvis.getState().confirmation!.action_id
+    const id = useSwyvorn.getState().confirmation!.action_id
     await vi.advanceTimersByTimeAsync(1500 + 15_000)
-    expect(useJarvis.getState().confirmation).toBeNull()
-    expect(useJarvis.getState().actions.find((a) => a.id === id)?.status).toBe('timeout')
+    expect(useSwyvorn.getState().confirmation).toBeNull()
+    expect(useSwyvorn.getState().actions.find((a) => a.id === id)?.status).toBe('timeout')
     core.dispose()
   })
 
   it('«Стоп» закрывает вопрос, помечает действие и возвращается в ожидание', async () => {
     const { core } = startCore({ freezeState: 'awaiting_confirmation', confirm: true })
-    const id = useJarvis.getState().confirmation!.action_id
+    const id = useSwyvorn.getState().confirmation!.action_id
     core.handle({ type: 'stop', source: 'button' })
-    const s = useJarvis.getState()
+    const s = useSwyvorn.getState()
     expect(s.state).toBe('stopped')
     expect(s.lastStop?.source).toBe('button')
     expect(s.confirmation).toBeNull()
     expect(s.actions.find((a) => a.id === id)?.status).toBe('stopped')
     await vi.advanceTimersByTimeAsync(800)
-    expect(useJarvis.getState().state).toBe('idle')
+    expect(useSwyvorn.getState().state).toBe('idle')
     core.dispose()
   })
 
   it('send_text: реплика → думаю → потоковый ответ с текстом пользователя', async () => {
     const { core } = startCore({ freezeState: 'idle', confirm: false })
     core.handle({ type: 'send_text', text: '  проверка  ' })
-    let s = useJarvis.getState()
+    let s = useSwyvorn.getState()
     expect(s.messages.at(-1)).toMatchObject({ role: 'user', text: 'проверка' })
     expect(s.state).toBe('thinking')
 
     await vi.advanceTimersByTimeAsync(1200)
-    s = useJarvis.getState()
+    s = useSwyvorn.getState()
     expect(s.state).toBe('speaking')
     expect(s.messages.at(-1)).toMatchObject({ role: 'assistant', streaming: true })
 
     await vi.advanceTimersByTimeAsync(4000)
-    s = useJarvis.getState()
+    s = useSwyvorn.getState()
     expect(s.state).toBe('idle')
     const reply = s.messages.at(-1)!
     expect(reply.streaming).toBe(false)
@@ -151,29 +151,29 @@ describe('MockCore', () => {
   it('демо-команды и выключение микрофона', () => {
     const { core } = startCore({ freezeState: 'idle', confirm: false })
     core.handle({ type: 'demo', action: 'set_state', state: 'thinking' })
-    expect(useJarvis.getState().state).toBe('thinking')
+    expect(useSwyvorn.getState().state).toBe('thinking')
     core.handle({ type: 'mute', muted: true })
-    expect(useJarvis.getState().muted).toBe(true)
+    expect(useSwyvorn.getState().muted).toBe(true)
     core.handle({ type: 'demo', action: 'confirmation' })
-    expect(useJarvis.getState().confirmation).not.toBeNull()
+    expect(useSwyvorn.getState().confirmation).not.toBeNull()
     core.handle({ type: 'demo', action: 'stop' })
-    expect(useJarvis.getState().confirmation).toBeNull()
-    expect(useJarvis.getState().state).toBe('idle')
+    expect(useSwyvorn.getState().confirmation).toBeNull()
+    expect(useSwyvorn.getState().state).toBe('idle')
     core.dispose()
   })
 
   it('сценарий идёт по шагам демо', async () => {
     const { core } = startCore({ freezeState: null, confirm: false })
-    expect(useJarvis.getState().state).toBe('idle')
+    expect(useSwyvorn.getState().state).toBe('idle')
     await vi.advanceTimersByTimeAsync(4000)
-    expect(useJarvis.getState().state).toBe('listening')
+    expect(useSwyvorn.getState().state).toBe('listening')
     await vi.advanceTimersByTimeAsync(3000)
-    expect(useJarvis.getState().messages.at(-1)?.text).toBe('Джарвис, какая сегодня погода?')
-    expect(useJarvis.getState().state).toBe('thinking')
+    expect(useSwyvorn.getState().messages.at(-1)?.text).toBe('SWYVORN, какая сегодня погода?')
+    expect(useSwyvorn.getState().state).toBe('thinking')
     await vi.advanceTimersByTimeAsync(2500)
-    expect(useJarvis.getState().state).toBe('speaking')
+    expect(useSwyvorn.getState().state).toBe('speaking')
     await vi.advanceTimersByTimeAsync(6000)
-    const weather = useJarvis.getState().actions.find((a) => a.tool === 'weather')
+    const weather = useSwyvorn.getState().actions.find((a) => a.tool === 'weather')
     expect(weather?.status).toBe('ok')
     expect(weather?.demo).toBe(true)
     core.dispose()

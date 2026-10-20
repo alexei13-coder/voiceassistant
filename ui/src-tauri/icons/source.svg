@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- Исходник значка «Джарвис»: тёмная плашка, кольца и светящееся ядро. PNG всех размеров — через `tauri icon`. -->
+  <!-- Исходник значка «SWYVORN»: тёмная плашка, кольца и светящееся ядро. PNG всех размеров — через `tauri icon`. -->
   <defs>
     <radialGradient id="plate" cx="50%" cy="46%" r="68%">
       <stop offset="0" stop-color="#0f2233"/>

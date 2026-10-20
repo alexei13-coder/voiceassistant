@@ -2,7 +2,7 @@
 // недоступно или молчит, либо «Стоп» нажат дважды за 2 с — аварийный стоп через оболочку.
 
 import { emergencyStop } from '../platform/tauri'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { sendCommand } from './connection'
 
 export const STOP_ACK_TIMEOUT_MS = 1000
@@ -74,7 +74,7 @@ async function runEmergencyStop(reason: EmergencyReason): Promise<void> {
   // Пока оболочка перезапускает ядро, повторные вызовы ничего не добавят.
   if (emergencyInFlight) return
   emergencyInFlight = true
-  const { addNotice } = useJarvis.getState()
+  const { addNotice } = useSwyvorn.getState()
   try {
     const supported = await emergencyStop()
     if (supported) addNotice('warning', `${EMERGENCY_NOTICES[reason]}: ядро перезапускается`, 'emergency_stop')
@@ -89,7 +89,7 @@ async function runEmergencyStop(reason: EmergencyReason): Promise<void> {
 export const stopController = createStopController({
   send: () => sendCommand({ type: 'stop', source: 'button' }),
   acknowledgedSince: (since) => {
-    const { lastStop, stateChangedAt } = useJarvis.getState()
+    const { lastStop, stateChangedAt } = useSwyvorn.getState()
     return (lastStop !== null && lastStop.at >= since) || stateChangedAt >= since
   },
   emergency: (reason) => void runEmergencyStop(reason),

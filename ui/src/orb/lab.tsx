@@ -10,7 +10,7 @@ import { StrictMode, useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { pushLevel } from '../live'
 import { type AssistantState, type ConfirmationRequest, STATE_LABELS } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { Orb, type OrbStats } from './Orb'
 
 const STATES = Object.keys(STATE_LABELS) as AssistantState[]
@@ -68,8 +68,8 @@ function fakeConfirmation(expiresAt: number | null): ConfirmationRequest {
 
 /** Смена состояния как от ядра; «жду подтверждения» без вопроса не бывает — подкладываем фиктивный. */
 function setLabState(state: AssistantState): void {
-  const { confirmation } = useJarvis.getState()
-  useJarvis.setState({
+  const { confirmation } = useSwyvorn.getState()
+  useSwyvorn.setState({
     state,
     stateChangedAt: Date.now(),
     confirmation: state === 'awaiting_confirmation' ? (confirmation ?? fakeConfirmation(null)) : null,
@@ -77,8 +77,8 @@ function setLabState(state: AssistantState): void {
 }
 
 function startCountdown(): void {
-  const s = useJarvis.getState()
-  useJarvis.setState({
+  const s = useSwyvorn.getState()
+  useSwyvorn.setState({
     state: 'awaiting_confirmation',
     stateChangedAt: s.state === 'awaiting_confirmation' ? s.stateChangedAt : Date.now(),
     confirmation: fakeConfirmation(Date.now() + CONFIRM_TIMEOUT_MS),
@@ -89,7 +89,7 @@ let stopTimer = 0
 
 function pressStop(): void {
   const now = Date.now()
-  useJarvis.setState({
+  useSwyvorn.setState({
     lastStop: { at: now, source: 'button' },
     state: 'stopped',
     stateChangedAt: now,
@@ -97,7 +97,7 @@ function pressStop(): void {
   })
   window.clearTimeout(stopTimer)
   stopTimer = window.setTimeout(() => {
-    if (useJarvis.getState().state === 'stopped') setLabState('idle')
+    if (useSwyvorn.getState().state === 'stopped') setLabState('idle')
   }, STOP_TO_IDLE_MS)
 }
 
@@ -116,7 +116,7 @@ function speechLevel(t: number): number {
 }
 
 // Начальные значения — до первого кадра, чтобы статичный скриншот сразу был в нужном состоянии.
-useJarvis.setState({
+useSwyvorn.setState({
   state: CONFIG.state,
   stateChangedAt: Date.now(),
   confirmation:
@@ -199,8 +199,8 @@ interface LevelControls {
 }
 
 function LabPanel({ stats, levels }: { stats: OrbStats | null; levels: LevelControls }) {
-  const state = useJarvis((s) => s.state)
-  const reducedMotion = useJarvis((s) => s.reducedMotion)
+  const state = useSwyvorn((s) => s.state)
+  const reducedMotion = useSwyvorn((s) => s.reducedMotion)
   const { mic, tts, auto, setMic, setTts, setAuto } = levels
 
   return (
@@ -226,7 +226,7 @@ function LabPanel({ stats, levels }: { stats: OrbStats | null; levels: LevelCont
         <input
           type="checkbox"
           checked={reducedMotion}
-          onChange={(e) => useJarvis.getState().setReducedMotion(e.target.checked)}
+          onChange={(e) => useSwyvorn.getState().setReducedMotion(e.target.checked)}
         />
         Меньше движения
       </label>
@@ -234,7 +234,7 @@ function LabPanel({ stats, levels }: { stats: OrbStats | null; levels: LevelCont
         <button type="button" onClick={startCountdown}>
           Отсчёт 15 с
         </button>
-        <button type="button" onClick={() => setLabState(useJarvis.getState().state)}>
+        <button type="button" onClick={() => setLabState(useSwyvorn.getState().state)}>
           Повторить вход
         </button>
         <button type="button" className="lab__stop" onClick={pressStop}>

@@ -9,7 +9,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-DATA_DIR_ENV = "JARVIS_DATA_DIR"
+DATA_DIR_ENV = "SWYVORN_DATA_DIR"
 
 
 def default_data_dir(
@@ -23,14 +23,14 @@ def default_data_dir(
     if platform == "win32":
         appdata = env.get("APPDATA")
         base = Path(appdata) if appdata else home / "AppData" / "Roaming"
-        return base / "Jarvis"
+        return base / "Swyvorn"
     if platform == "darwin":
-        return home / "Library" / "Application Support" / "Jarvis"
+        return home / "Library" / "Application Support" / "Swyvorn"
     # По спецификации XDG относительный путь в XDG_CONFIG_HOME недействителен. Проверка по правилам
     # POSIX, а не текущей ОС: на Windows Path("/xdg").is_absolute() ложно из-за отсутствия диска.
     xdg = env.get("XDG_CONFIG_HOME")
     base = Path(xdg) if xdg and posixpath.isabs(xdg) else home / ".config"
-    return base / "jarvis"
+    return base / "swyvorn"
 
 
 def resolve_data_dir(
@@ -39,7 +39,7 @@ def resolve_data_dir(
     env: Mapping[str, str] = os.environ,
     platform: str = sys.platform,
 ) -> Path:
-    """Флаг --data-dir важнее JARVIS_DATA_DIR, тот — важнее папки по умолчанию."""
+    """Флаг --data-dir важнее SWYVORN_DATA_DIR, тот — важнее папки по умолчанию."""
     if cli_value is not None:
         raw = cli_value
     elif env.get(DATA_DIR_ENV, "").strip():

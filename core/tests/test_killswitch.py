@@ -7,7 +7,7 @@ import time
 
 from conftest import Core, build_core
 
-from jarvis.state import AssistantState
+from swyvorn.state import AssistantState
 
 S = AssistantState
 

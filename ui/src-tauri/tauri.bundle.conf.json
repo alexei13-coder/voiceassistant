@@ -1,7 +1,7 @@
 {
   "bundle": {
     "resources": {
-      "../../core/dist/jarvis-core/": "core/"
+      "../../core/dist/swyvorn-core/": "core/"
     }
   }
 }

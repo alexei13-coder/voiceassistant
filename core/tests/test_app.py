@@ -12,14 +12,14 @@ from pathlib import Path
 import pytest
 from conftest import TOKEN, open_client, recv_json, recv_until, running_app
 
-from jarvis import app as app_module
-from jarvis.app import run
-from jarvis.cli import CliOptions, ExitCode
-from jarvis.config import DEFAULT_SETTINGS_TOML
-from jarvis.logging_setup import REDACTOR
-from jarvis.platform.elevation import ELEVATED_MESSAGE, check_elevation
-from jarvis.protocol import HotkeyErrorMessage, HotkeyMessage, ShutdownMessage, TrayMessage
-from jarvis.state import AssistantState
+from swyvorn import app as app_module
+from swyvorn.app import run
+from swyvorn.cli import CliOptions, ExitCode
+from swyvorn.config import DEFAULT_SETTINGS_TOML
+from swyvorn.logging_setup import REDACTOR
+from swyvorn.platform.elevation import ELEVATED_MESSAGE, check_elevation
+from swyvorn.protocol import HotkeyErrorMessage, HotkeyMessage, ShutdownMessage, TrayMessage
+from swyvorn.state import AssistantState
 
 S = AssistantState
 API_KEY = "sk-ant-api03-IntegrationSecretKey987"
@@ -41,7 +41,7 @@ async def test_hello_snapshot_and_live_metrics() -> None:
         hello = await recv_json(ws)
         assert hello["type"] == "hello"
         assert hello["demo"] is True
-        assert hello["assistant_name"] == "Джарвис"
+        assert hello["assistant_name"] == "SWYVORN"
         assert hello["ui"] == {"reduced_motion": False}
         metrics = await recv_until(ws, "metrics", within=3)
         assert 0 <= metrics["cpu_percent"] <= 100
@@ -194,9 +194,9 @@ async def test_stdin_eof_triggers_shutdown() -> None:
 
 
 async def test_port_in_use_exit_4() -> None:
-    from jarvis.api.control import StdoutChannel
-    from jarvis.app import Application
-    from jarvis.config import Settings
+    from swyvorn.api.control import StdoutChannel
+    from swyvorn.app import Application
+    from swyvorn.config import Settings
 
     with socket.socket() as busy:
         busy.bind(("127.0.0.1", 0))
@@ -228,7 +228,7 @@ def restore_logging(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(threading, "excepthook", threading.excepthook)
     yield
     root = logging.getLogger()
-    for handler in [h for h in root.handlers if h.get_name() == "jarvis"]:
+    for handler in [h for h in root.handlers if h.get_name() == "swyvorn"]:
         root.removeHandler(handler)
         handler.close()
 
@@ -240,7 +240,7 @@ def test_full_run_writes_defaults_and_never_leaks_secrets(tmp_path: Path) -> Non
     (data / ".env").write_text(f"ANTHROPIC_API_KEY={API_KEY}\n", encoding="utf-8")
     stdout = io.BytesIO()
     stdin = io.BytesIO(b'{"type":"shutdown"}\n').read
-    environ = {"JARVIS_IPC_TOKEN": TOKEN}
+    environ = {"SWYVORN_IPC_TOKEN": TOKEN}
     code = run(
         CliOptions(port=0, data_dir=data, log_level="DEBUG"),
         environ=environ,
@@ -277,7 +277,7 @@ def test_full_run_elevated_on_windows_exit_3(tmp_path: Path, monkeypatch: pytest
     stdout = io.BytesIO()
     data = tmp_path / "data"
     options = CliOptions(data_dir=data, no_stdin=True)
-    code = run(options, environ={"JARVIS_IPC_TOKEN": TOKEN}, stdout_stream=stdout)
+    code = run(options, environ={"SWYVORN_IPC_TOKEN": TOKEN}, stdout_stream=stdout)
     assert code == ExitCode.ELEVATED == 3
     assert json.loads(stdout.getvalue()) == {"type": "fatal", "message": ELEVATED_MESSAGE}
     assert not (data / "settings.toml").exists()

@@ -10,9 +10,9 @@ import os
 
 import pytest
 
-from jarvis.api.control import StdinReader, StdoutChannel, iter_lines
-from jarvis.config import Settings
-from jarvis.protocol import (
+from swyvorn.api.control import StdinReader, StdoutChannel, iter_lines
+from swyvorn.config import Settings
+from swyvorn.protocol import (
     HotkeyErrorMessage,
     HotkeyMessage,
     Hotkeys,

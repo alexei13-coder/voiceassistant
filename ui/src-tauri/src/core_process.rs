@@ -272,7 +272,7 @@ impl CoreManager {
             .shell()
             .command(&spec.program)
             .args(&spec.args)
-            .env("JARVIS_IPC_TOKEN", self.token.as_str())
+            .env("SWYVORN_IPC_TOKEN", self.token.as_str())
             .env("PYTHONUTF8", "1")
             // Байты как есть: строки собирает LineBuffer, а не плагин.
             .set_raw_out(true)

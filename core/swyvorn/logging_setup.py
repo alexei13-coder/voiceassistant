@@ -24,7 +24,7 @@ LOG_FILE_MAX_BYTES = 1024 * 1024
 LOG_FILE_BACKUPS = 4
 
 _FORMAT = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
-_HANDLER_NAME = "jarvis"
+_HANDLER_NAME = "swyvorn"
 
 _ANTHROPIC_KEY_RE = re.compile(r"sk-ant-[A-Za-z0-9_-]{8,}")
 
@@ -162,7 +162,7 @@ def set_level(level: str) -> None:
 
 def _install_excepthooks() -> None:
     """Стандартные хуки печатают трассировку в stderr мимо фильтра — направляем их в лог."""
-    log = logging.getLogger("jarvis")
+    log = logging.getLogger("swyvorn")
 
     def excepthook(exc_type: type[BaseException], exc: BaseException, tb: TracebackType | None) -> None:
         log.critical("Необработанное исключение", exc_info=(exc_type, exc, tb))

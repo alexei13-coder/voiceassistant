@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from jarvis import config
-from jarvis.config import (
+from swyvorn import config
+from swyvorn.config import (
     DEFAULT_SETTINGS_TOML,
     Settings,
     TokenError,
@@ -20,7 +20,7 @@ from jarvis.config import (
     resolve_ipc_token,
     settings_from_mapping,
 )
-from jarvis.paths import DataPaths
+from swyvorn.paths import DataPaths
 
 DOCS = Path(__file__).resolve().parents[2] / "docs" / "configuration.md"
 
@@ -45,7 +45,7 @@ def test_missing_file_is_created_with_defaults(tmp_path: Path) -> None:
 
 def test_defaults() -> None:
     s = Settings()
-    assert s.assistant.name == "Джарвис"
+    assert s.assistant.name == "SWYVORN"
     assert s.assistant.address_form == "сэр"
     assert s.llm.model == "claude-opus-5-5"
     assert s.llm.effort == "low"
@@ -149,11 +149,11 @@ def test_process_env_wins_then_data_dir_then_repo(tmp_path: Path) -> None:
 
 
 def test_env_files_do_not_touch_os_environ(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("JARVIS_TEST_ONLY_VAR", raising=False)
+    monkeypatch.delenv("SWYVORN_TEST_ONLY_VAR", raising=False)
     env_file = tmp_path / ".env"
-    env_file.write_text("JARVIS_TEST_ONLY_VAR=1\n", encoding="utf-8")
+    env_file.write_text("SWYVORN_TEST_ONLY_VAR=1\n", encoding="utf-8")
     load_environment([env_file], {})
-    assert "JARVIS_TEST_ONLY_VAR" not in os.environ
+    assert "SWYVORN_TEST_ONLY_VAR" not in os.environ
 
 
 def test_repo_env_only_in_dev(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -182,7 +182,7 @@ def test_api_key_is_secret(tmp_path: Path) -> None:
 
 
 def test_ipc_token_from_env() -> None:
-    assert resolve_ipc_token({"JARVIS_IPC_TOKEN": " tok "}, dev=False) == ("tok", False)
+    assert resolve_ipc_token({"SWYVORN_IPC_TOKEN": " tok "}, dev=False) == ("tok", False)
 
 
 def test_ipc_token_generated_only_in_dev() -> None:
@@ -195,4 +195,4 @@ def test_ipc_token_generated_only_in_dev() -> None:
 
 def test_ipc_token_too_long() -> None:
     with pytest.raises(TokenError):
-        resolve_ipc_token({"JARVIS_IPC_TOKEN": "x" * 257}, dev=True)
+        resolve_ipc_token({"SWYVORN_IPC_TOKEN": "x" * 257}, dev=True)

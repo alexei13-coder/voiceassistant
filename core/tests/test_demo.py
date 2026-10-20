@@ -9,10 +9,10 @@ from dataclasses import replace
 import pytest
 from conftest import FAST, Core, build_core
 
-from jarvis.confirmation import ConfirmationGate
-from jarvis.demo import EXECUTED_DETAIL, USER_TRASH, USER_WEATHER, DemoTimings
-from jarvis.demo_audio import FRAME_RATE
-from jarvis.state import AssistantState
+from swyvorn.confirmation import ConfirmationGate
+from swyvorn.demo import EXECUTED_DETAIL, USER_TRASH, USER_WEATHER, DemoTimings
+from swyvorn.demo_audio import FRAME_RATE
+from swyvorn.state import AssistantState
 
 S = AssistantState
 
@@ -166,7 +166,7 @@ async def test_timeout_outcome() -> None:
 
 
 async def test_expired_but_timer_not_fired_is_stale() -> None:
-    from jarvis.bus import EventBus
+    from swyvorn.bus import EventBus
 
     now = [1_000_000]
     gate = ConfirmationGate(EventBus(), clock=lambda: now[0])
@@ -191,7 +191,7 @@ async def test_answer_during_question_cuts_speech(core: Core) -> None:
 
 
 async def test_new_confirmation_supersedes_previous() -> None:
-    from jarvis.bus import EventBus
+    from swyvorn.bus import EventBus
 
     gate = ConfirmationGate(EventBus())
     first = gate.open(action_id="a1", title="t", spoken_text="s", details=[])
@@ -204,13 +204,13 @@ async def test_new_confirmation_supersedes_previous() -> None:
 
 
 async def test_send_text_reply(core: Core) -> None:
-    core.demo.handle_user_text("Привет, Джарвис")
+    core.demo.handle_user_text("Привет, SWYVORN")
     await core.rec.wait_type("state", state=S.THINKING)
     await core.rec.wait_type("state", state=S.IDLE)
     messages = [e.message for e in core.rec.of_type("chat_message")]
-    assert (messages[0].role, messages[0].text) == ("user", "Привет, Джарвис")
+    assert (messages[0].role, messages[0].text) == ("user", "Привет, SWYVORN")
     reply = "".join(e.delta for e in core.rec.of_type("chat_delta"))
-    assert reply == "Это демонстрационный режим: мозг подключим на этапе 2. Вы написали: „Привет, Джарвис“"
+    assert reply == "Это демонстрационный режим: мозг подключим на этапе 2. Вы написали: „Привет, SWYVORN“"
 
 
 async def test_long_text_is_quoted_briefly(core: Core) -> None:

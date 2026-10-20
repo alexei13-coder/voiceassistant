@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Сборка ядра PyInstaller (onedir) в core/dist/jarvis-core/ — те же параметры, что в scripts/build-core.ps1 и CI.
+# Сборка ядра PyInstaller (onedir) в core/dist/swyvorn-core/ — те же параметры, что в scripts/build-core.ps1 и CI.
 # На Linux/macOS получается бинарник для проверки сборки; установщик для Windows собирает только CI.
 set -euo pipefail
 
@@ -16,8 +16,8 @@ uv sync --locked
 # spec-файл и промежуточные файлы — в core/build/ (в .gitignore), чтобы не засорять репозиторий.
 # «X utf8» — режим UTF-8 Python: собранный интерпретатор игнорирует PYTHONUTF8 (подробнее — в build-core.ps1).
 uv run --locked pyinstaller --noconfirm --clean --onedir --console --python-option "X utf8" \
-  --name jarvis-core --contents-directory _internal \
+  --name swyvorn-core --contents-directory _internal \
   --distpath dist --workpath build/pyinstaller --specpath build \
-  jarvis_entry.py
+  swyvorn_entry.py
 
-echo "Готово: $repo_root/core/dist/jarvis-core/"
+echo "Готово: $repo_root/core/dist/swyvorn-core/"

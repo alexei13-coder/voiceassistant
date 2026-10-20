@@ -1,6 +1,6 @@
-# Джарвис
+# SWYVORN
 
-Персональный голосовой ИИ-ассистент для Windows 11: говорит и понимает по-русски, думает с помощью Claude API, живёт в трее и вызывается горячей клавишей или словом «Джарвис».
+Персональный голосовой ИИ-ассистент для Windows 11: говорит и понимает по-русски, думает с помощью Claude API, живёт в трее и вызывается горячей клавишей или словом «SWYVORN».
 
 [![CI](https://github.com/alexei13-coder/voiceassistant/actions/workflows/ci.yml/badge.svg)](https://github.com/alexei13-coder/voiceassistant/actions/workflows/ci.yml)
 [![Сборка для Windows](https://github.com/alexei13-coder/voiceassistant/actions/workflows/build-windows.yml/badge.svg)](https://github.com/alexei13-coder/voiceassistant/actions/workflows/build-windows.yml)
@@ -17,7 +17,7 @@
 |---|---|---|
 | 1 | Каркас: ядро, оболочка, HUD, протокол, демо-сценарий, CI и установщик | **идёт сейчас** |
 | 2 | «Мозг»: диалог через Claude API, память о пользователе, вопрос «как к вам обращаться» при первом запуске | запланирован |
-| 3 | Голос: слово-триггер «Джарвис», распознавание и синтез русской речи, голосовой «Стоп», повтор ответа | запланирован |
+| 3 | Голос: слово-триггер «SWYVORN», распознавание и синтез русской речи, голосовой «Стоп», повтор ответа | запланирован |
 | 4 | Инструменты и безопасность: плагины, уровни риска, подтверждения, анализ экрана | запланирован |
 | 5 | Доводка: стабильность и удобство; состав уточним по итогам этапов 1–4 | запланирован |
 
@@ -33,11 +33,11 @@
 
 1. Войдите в GitHub (без входа артефакты не скачиваются).
 2. Откройте [Actions → «Сборка для Windows»](https://github.com/alexei13-coder/voiceassistant/actions/workflows/build-windows.yml) и выберите последний успешный запуск (зелёная галочка).
-3. Внизу страницы, в разделе **Artifacts**, скачайте **jarvis-windows-installer** и распакуйте архив.
-4. Запустите `Jarvis_…_x64-setup.exe`. Права администратора не нужны: приложение ставится только для текущего пользователя.
+3. Внизу страницы, в разделе **Artifacts**, скачайте **swyvorn-windows-installer** и распакуйте архив.
+4. Запустите `Swyvorn_…_x64-setup.exe`. Права администратора не нужны: приложение ставится только для текущего пользователя.
 5. Windows покажет предупреждение SmartScreen «Система Windows защитила ваш компьютер» — приложение пока не подписано сертификатом. Нажмите **«Подробнее» → «Выполнить в любом случае»**.
 
-Без установки: скачайте артефакт **jarvis-windows-portable**, распакуйте в любую папку и запустите `Jarvis.exe`. Папка `core` должна лежать рядом с `Jarvis.exe` — в ней ядро ассистента.
+Без установки: скачайте артефакт **swyvorn-windows-portable**, распакуйте в любую папку и запустите `Swyvorn.exe`. Папка `core` должна лежать рядом с `Swyvorn.exe` — в ней ядро ассистента.
 
 Артефакты хранятся 14 дней. Если они истекли, владелец репозитория может пересобрать их кнопкой **Run workflow** на той же странице.
 
@@ -86,14 +86,14 @@ cd ui; npm run dev
 # оболочка: форматирование и clippy
 cd ui\src-tauri; cargo fmt; cargo clippy --all-targets -- -D warnings; cd ..\..
 
-# установщик локально: сначала ядро (core\dist\jarvis-core), затем приложение
+# установщик локально: сначала ядро (core\dist\swyvorn-core), затем приложение
 powershell -ExecutionPolicy Bypass -File scripts\build-core.ps1
 cd ui; npx tauri build --config src-tauri/tauri.bundle.conf.json
 ```
 
 Режим имитации `?mock=1` не требует Python: интерфейс сам изображает ядро. Дополнительные параметры: `&state=listening` — зафиксировать состояние, `&confirm=1` — показать окно подтверждения.
 
-Отладочной оболочке можно подменить команду запуска ядра переменными `JARVIS_CORE_PROGRAM` и `JARVIS_CORE_ARGS` (в релизной сборке они не действуют).
+Отладочной оболочке можно подменить команду запуска ядра переменными `SWYVORN_CORE_PROGRAM` и `SWYVORN_CORE_ARGS` (в релизной сборке они не действуют).
 
 ## Разработка в браузере (Linux/macOS)
 
@@ -103,7 +103,7 @@ cd ui; npx tauri build --config src-tauri/tauri.bundle.conf.json
 scripts/dev-browser.sh
 ```
 
-Скрипт создаёт случайный токен, запускает ядро (`--dev --no-stdin --port 8765`) и Vite с тем же токеном, ждёт готовности ядра и печатает адрес: **http://127.0.0.1:1420/**. Ctrl+C останавливает оба процесса. Другой порт: `JARVIS_DEV_PORT=8766 scripts/dev-browser.sh`.
+Скрипт создаёт случайный токен, запускает ядро (`--dev --no-stdin --port 8765`) и Vite с тем же токеном, ждёт готовности ядра и печатает адрес: **http://127.0.0.1:1420/**. Ctrl+C останавливает оба процесса. Другой порт: `SWYVORN_DEV_PORT=8766 scripts/dev-browser.sh`.
 
 В браузере нет трея, глобальных горячих клавиш и аварийного стопа (их даёт оболочка) — интерфейс об этом предупреждает. Без Python можно открыть имитацию: `cd ui && npm run dev`, затем http://127.0.0.1:1420/?mock=1.
 
@@ -115,15 +115,15 @@ scripts/dev-browser.sh
 
 1. Получите ключ: [console.anthropic.com](https://console.anthropic.com) → **API Keys** → **Create Key**.
 2. Скопируйте образец [`.env.example`](.env.example) в файл `.env` и впишите ключ после `ANTHROPIC_API_KEY=`:
-   - установленное приложение — `%APPDATA%\Jarvis\.env`;
+   - установленное приложение — `%APPDATA%\Swyvorn\.env`;
    - разработка — можно положить `.env` в корень репозитория (ядро читает его только в режиме `--dev`).
 
 ```powershell
-Copy-Item .env.example "$env:APPDATA\Jarvis\.env"
-notepad "$env:APPDATA\Jarvis\.env"
+Copy-Item .env.example "$env:APPDATA\Swyvorn\.env"
+notepad "$env:APPDATA\Swyvorn\.env"
 ```
 
-Порядок поиска: переменные окружения → `%APPDATA%\Jarvis\.env` → `.env` в корне репозитория (только `--dev`).
+Порядок поиска: переменные окружения → `%APPDATA%\Swyvorn\.env` → `.env` в корне репозитория (только `--dev`).
 
 **Почему не в коде.** Ключ даёт доступ к платному аккаунту: попав в коммит, он остаётся в истории git навсегда, даже если строку потом удалить. Файл `.env` уже в `.gitignore`. Ядро держит ключ только в памяти и никогда не пишет его в лог, в интерфейс или в сообщения протокола.
 
@@ -140,15 +140,15 @@ notepad "$env:APPDATA\Jarvis\.env"
 | `Ctrl+Alt+R` | повторить последний ответ (этап 3) |
 | `Ctrl+Alt+S` | посмотреть на экран (этап 4) |
 
-Сочетания меняются в разделе `[hotkeys]` файла `%APPDATA%\Jarvis\settings.toml`; после правки перезапустите приложение (трей → «Выход» и запустить снова).
+Сочетания меняются в разделе `[hotkeys]` файла `%APPDATA%\Swyvorn\settings.toml`; после правки перезапустите приложение (трей → «Выход» и запустить снова).
 
 ## Где лежат данные и логи
 
 | ОС | Папка данных |
 |---|---|
-| Windows | `%APPDATA%\Jarvis\` |
-| Linux (разработка) | `$XDG_CONFIG_HOME/jarvis/` или `~/.config/jarvis/` |
-| macOS (разработка) | `~/Library/Application Support/Jarvis/` |
+| Windows | `%APPDATA%\Swyvorn\` |
+| Linux (разработка) | `$XDG_CONFIG_HOME/swyvorn/` или `~/.config/swyvorn/` |
+| macOS (разработка) | `~/Library/Application Support/Swyvorn/` |
 
 Внутри:
 
@@ -159,7 +159,7 @@ logs/core.log      лог ядра: ротация 1 МБ × 5 файлов, с�
 logs/shell.log     лог оболочки (трей, горячие клавиши, запуск ядра)
 ```
 
-Позже (с этапа 2) появятся `memory.json`, `contacts.toml` и `logs/audit.jsonl`. Другую папку можно задать переменной `JARVIS_DATA_DIR`. Образец настроек со всеми ключами — [`settings.example.toml`](settings.example.toml), описание — [docs/configuration.md](docs/configuration.md). При удалении приложения папка данных сохраняется; если она не нужна, удалите её вручную.
+Позже (с этапа 2) появятся `memory.json`, `contacts.toml` и `logs/audit.jsonl`. Другую папку можно задать переменной `SWYVORN_DATA_DIR`. Образец настроек со всеми ключами — [`settings.example.toml`](settings.example.toml), описание — [docs/configuration.md](docs/configuration.md). При удалении приложения папка данных сохраняется; если она не нужна, удалите её вручную.
 
 ## Безопасность
 
@@ -179,7 +179,7 @@ logs/shell.log     лог оболочки (трей, горячие клави�
 
 > Появится на этапе 4. Ниже — предварительный контракт, детали могут измениться.
 
-Каждый инструмент — отдельный модуль в `core/jarvis/plugins/`. Модуль описывает:
+Каждый инструмент — отдельный модуль в `core/swyvorn/plugins/`. Модуль описывает:
 
 | Часть | Зачем |
 |---|---|
@@ -194,7 +194,7 @@ logs/shell.log     лог оболочки (трей, горячие клави�
 Набросок того, как это может выглядеть:
 
 ```python
-# core/jarvis/plugins/weather.py — набросок, API появится на этапе 4
+# core/swyvorn/plugins/weather.py — набросок, API появится на этапе 4
 class WeatherArgs(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     city: str = Field(min_length=1, max_length=100)
@@ -215,8 +215,8 @@ class Weather(Tool[WeatherArgs]):
 
 ```
 core/                 ядро на Python 3.12 (uv): логика, протокол, демо-сценарий
-  jarvis/             исходники (точка входа — python -m jarvis)
-  jarvis_entry.py     точка входа сборки PyInstaller (jarvis-core.exe)
+  swyvorn/             исходники (точка входа — python -m swyvorn)
+  swyvorn_entry.py     точка входа сборки PyInstaller (swyvorn-core.exe)
   tests/              тесты pytest
 ui/                   интерфейс: React 19 + TypeScript + Vite
   src/                HUD, клиент WebSocket, анимированное ядро (WebGL2)
@@ -230,13 +230,13 @@ docs/                 протокол, настройки, архитектур
 
 ## Решение проблем
 
-**Горячая клавиша не работает или HUD сообщает, что сочетание занято.** Его уже заняла другая программа. Для «Стопа» автоматически включается запасное `Ctrl+Alt+Backspace`. Любое сочетание можно поменять в `[hotkeys]` файла `%APPDATA%\Jarvis\settings.toml` и перезапустить приложение.
+**Горячая клавиша не работает или HUD сообщает, что сочетание занято.** Его уже заняла другая программа. Для «Стопа» автоматически включается запасное `Ctrl+Alt+Backspace`. Любое сочетание можно поменять в `[hotkeys]` файла `%APPDATA%\Swyvorn\settings.toml` и перезапустить приложение.
 
 **Предупреждение SmartScreen при запуске установщика.** Приложение не подписано сертификатом, это ожидаемо: «Подробнее» → «Выполнить в любом случае».
 
-**Где смотреть логи.** `%APPDATA%\Jarvis\logs\core.log` — ядро, `%APPDATA%\Jarvis\logs\shell.log` — оболочка. Быстро открыть папку: Win+R → `%APPDATA%\Jarvis\logs`.
+**Где смотреть логи.** `%APPDATA%\Swyvorn\logs\core.log` — ядро, `%APPDATA%\Swyvorn\logs\shell.log` — оболочка. Быстро открыть папку: Win+R → `%APPDATA%\Swyvorn\logs`.
 
-**Ядро постоянно перезапускается или HUD пишет, что ядро упало.** Оболочка перезапускает упавшее ядро с паузами 1, 2, 4… секунды и сдаётся после 5 попыток за минуту. Причина — в `logs\core.log`. Частые случаи: антивирус поместил `core\jarvis-core.exe` в карантин (добавьте папку приложения в исключения), в портативной версии рядом с `Jarvis.exe` нет папки `core`.
+**Ядро постоянно перезапускается или HUD пишет, что ядро упало.** Оболочка перезапускает упавшее ядро с паузами 1, 2, 4… секунды и сдаётся после 5 попыток за минуту. Причина — в `logs\core.log`. Частые случаи: антивирус поместил `core\swyvorn-core.exe` в карантин (добавьте папку приложения в исключения), в портативной версии рядом с `Swyvorn.exe` нет папки `core`.
 
 **«Ассистент нельзя запускать от имени администратора».** Запустите приложение обычным способом, без «Запуск от имени администратора».
 

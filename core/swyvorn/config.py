@@ -31,12 +31,12 @@ from .protocol import MAX_TOKEN_LENGTH
 log = logging.getLogger(__name__)
 
 API_KEY_ENV = "ANTHROPIC_API_KEY"
-IPC_TOKEN_ENV = "JARVIS_IPC_TOKEN"  # noqa: S105 — имя переменной окружения, а не токен
+IPC_TOKEN_ENV = "SWYVORN_IPC_TOKEN"  # noqa: S105 — имя переменной окружения, а не токен
 
 # Текст файла, который создаётся при первом запуске. Должен совпадать с docs/configuration.md.
 DEFAULT_SETTINGS_TOML = """\
 [assistant]
-name = "Джарвис"              # имя ассистента
+name = "SWYVORN"              # имя ассистента
 address_form = "сэр"          # как обращаться к пользователю; спросим при первом запуске (этап 2)
 
 [llm]
@@ -77,7 +77,7 @@ class _Section(BaseModel):
 
 
 class AssistantSettings(_Section):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] = "Джарвис"
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)] = "SWYVORN"
     address_form: Annotated[str, StringConstraints(strip_whitespace=True, max_length=40)] = "сэр"
 
 
@@ -273,4 +273,4 @@ def resolve_ipc_token(env: Mapping[str, str], *, dev: bool) -> tuple[str, bool]:
         return token, False
     if dev:
         return secrets.token_urlsafe(24), True
-    raise TokenError("Ядро запущено без токена доступа. Запустите Джарвиса через приложение, а не напрямую.")
+    raise TokenError("Ядро запущено без токена доступа. Запустите SWYVORN через приложение, а не напрямую.")

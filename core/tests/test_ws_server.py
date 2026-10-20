@@ -13,11 +13,11 @@ from conftest import DEV_ORIGIN, TAURI_ORIGIN, TOKEN, open_client, recv_json
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed, InvalidStatus
 
-from jarvis.api.ws_server import ClientChannel, WsServer
-from jarvis.bus import EventBus
-from jarvis.config import Settings
-from jarvis.logging_setup import REDACTED, SecretRedactor
-from jarvis.protocol import (
+from swyvorn.api.ws_server import ClientChannel, WsServer
+from swyvorn.bus import EventBus
+from swyvorn.config import Settings
+from swyvorn.logging_setup import REDACTED, SecretRedactor
+from swyvorn.protocol import (
     ClientMessage,
     HelloMessage,
     Hotkeys,
@@ -29,7 +29,7 @@ from jarvis.protocol import (
     ServerMessage,
     UiFlags,
 )
-from jarvis.state import AssistantState
+from swyvorn.state import AssistantState
 
 API_KEY = "sk-ant-api03-NeverSendThisKey123"
 

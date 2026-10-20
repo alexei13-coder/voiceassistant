@@ -4,19 +4,19 @@
 import { Orb } from '../orb/Orb'
 import { STATE_COLOR_VARS, offlineHint, stateHint } from '../labels'
 import { STATE_LABELS } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { ConfirmDialog } from './ConfirmDialog'
 import { cssVars } from './cssVars'
 import { DemoControls } from './DemoControls'
 import './CenterStage.css'
 
 function StateCaption() {
-  const state = useJarvis((s) => s.state)
-  const reason = useJarvis((s) => s.stateReason)
-  const activateHotkey = useJarvis((s) => s.info?.hotkeys.activate)
-  const assistantName = useJarvis((s) => s.info?.assistantName)
-  const buttonOnly = useJarvis((s) => s.confirmation?.button_only ?? false)
-  const connection = useJarvis((s) => s.connection)
+  const state = useSwyvorn((s) => s.state)
+  const reason = useSwyvorn((s) => s.stateReason)
+  const activateHotkey = useSwyvorn((s) => s.info?.hotkeys.activate)
+  const assistantName = useSwyvorn((s) => s.info?.assistantName)
+  const buttonOnly = useSwyvorn((s) => s.confirmation?.button_only ?? false)
+  const connection = useSwyvorn((s) => s.connection)
   const hint = offlineHint(connection) ?? stateHint(state, { reason, activateHotkey, assistantName, buttonOnly })
 
   return (
@@ -30,8 +30,8 @@ function StateCaption() {
 }
 
 export function CenterStage() {
-  const state = useJarvis((s) => s.state)
-  const confirming = useJarvis((s) => s.confirmation !== null)
+  const state = useSwyvorn((s) => s.state)
+  const confirming = useSwyvorn((s) => s.confirmation !== null)
 
   return (
     <section

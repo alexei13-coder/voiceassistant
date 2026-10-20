@@ -1,9 +1,9 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Jarvis",
-  "mainBinaryName": "Jarvis",
+  "productName": "SWYVORN",
+  "mainBinaryName": "Swyvorn",
   "version": "0.1.0",
-  "identifier": "com.alexei13.jarvis",
+  "identifier": "com.alexei13.swyvorn",
   "build": {
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../dist",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Джарвис",
+        "title": "SWYVORN",
         "width": 1440,
         "height": 900,
         "minWidth": 1100,
@@ -37,7 +37,7 @@
     "targets": ["nsis"],
     "publisher": "alexei13",
     "category": "Productivity",
-    "shortDescription": "Джарвис — голосовой ассистент",
+    "shortDescription": "SWYVORN — голосовой ассистент",
     "longDescription": "Персональный русскоязычный голосовой ассистент для Windows 11.",
     "icon": [
       "icons/32x32.png",
@@ -53,7 +53,7 @@
         "installMode": "currentUser",
         "languages": ["Russian", "English"],
         "displayLanguageSelector": false,
-        "startMenuFolder": "Jarvis"
+        "startMenuFolder": "Swyvorn"
       }
     }
   }

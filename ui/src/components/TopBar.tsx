@@ -4,14 +4,14 @@
 import { CONNECTION_LABELS, STATE_COLOR_VARS } from '../labels'
 import { isTauri, windowControls } from '../platform/tauri'
 import { STATE_LABELS } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { TopClock } from './Clock'
 import { cssVars } from './cssVars'
 import { BrandMark, Icon } from './Icon'
 import './TopBar.css'
 
 function StateIndicator() {
-  const state = useJarvis((s) => s.state)
+  const state = useSwyvorn((s) => s.state)
   return (
     <div className="topbar__state" data-tauri-drag-region style={cssVars({ '--state-color': STATE_COLOR_VARS[state] })}>
       <span className="state-dot" aria-hidden="true" />
@@ -23,7 +23,7 @@ function StateIndicator() {
 }
 
 function CoreIndicator() {
-  const connection = useJarvis((s) => s.connection)
+  const connection = useSwyvorn((s) => s.connection)
   return (
     <span className={`chip chip--link chip--${connection}`} title={`Связь с ядром: ${CONNECTION_LABELS[connection]}`}>
       <span className="chip__dot" aria-hidden="true" />
@@ -36,7 +36,7 @@ function CoreIndicator() {
 }
 
 function MicIndicator() {
-  const muted = useJarvis((s) => s.muted)
+  const muted = useSwyvorn((s) => s.muted)
   return (
     <span className={muted ? 'chip chip--mic chip--muted' : 'chip chip--mic'} title={muted ? 'Микрофон выключен' : 'Микрофон включён'}>
       <Icon name={muted ? 'micOff' : 'mic'} />
@@ -68,15 +68,15 @@ function WindowButtons() {
 }
 
 export function TopBar() {
-  const demo = useJarvis((s) => s.info?.demo ?? false)
-  const model = useJarvis((s) => s.info?.model ?? null)
+  const demo = useSwyvorn((s) => s.info?.demo ?? false)
+  const model = useSwyvorn((s) => s.info?.model ?? null)
   const inTauri = isTauri()
 
   return (
     <header className={inTauri ? 'topbar topbar--tauri' : 'topbar'} data-tauri-drag-region>
       <div className="topbar__brand" data-tauri-drag-region>
         <BrandMark className="topbar__mark" />
-        <span className="topbar__wordmark">ДЖАРВИС</span>
+        <span className="topbar__wordmark">SWYVORN</span>
       </div>
 
       <StateIndicator />

@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { sendCommand } from '../core/connection'
 import type { ConfirmationRequest } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { Icon } from './Icon'
 import './ConfirmDialog.css'
 
@@ -91,7 +91,7 @@ function ConfirmCard({ request }: { request: ConfirmationRequest }) {
     (decision: 'yes' | 'no') => {
       if (responded) return
       if (!sendCommand({ type: 'confirm', action_id: actionId, nonce, decision })) {
-        useJarvis.getState().addNotice('error', 'Нет связи с ядром — ответ не отправлен', 'confirm_not_sent')
+        useSwyvorn.getState().addNotice('error', 'Нет связи с ядром — ответ не отправлен', 'confirm_not_sent')
         return
       }
       setResponded(true)
@@ -216,7 +216,7 @@ function ConfirmCard({ request }: { request: ConfirmationRequest }) {
 }
 
 export function ConfirmDialog() {
-  const confirmation = useJarvis((s) => s.confirmation)
+  const confirmation = useSwyvorn((s) => s.confirmation)
   if (!confirmation) return null
   // key: новый вопрос — новый диалог (фокус снова на «Отмена», задержка «Да» заново)
   return <ConfirmCard key={confirmation.action_id} request={confirmation} />

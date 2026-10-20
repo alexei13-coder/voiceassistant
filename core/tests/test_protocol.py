@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from jarvis.config import Settings
-from jarvis.protocol import (
+from swyvorn.config import Settings
+from swyvorn.protocol import (
     AuthMessage,
     ConfirmMessage,
     DemoMessage,
@@ -29,7 +29,7 @@ from jarvis.protocol import (
     parse_client_message,
     parse_shell_message,
 )
-from jarvis.state import AssistantState
+from swyvorn.state import AssistantState
 
 
 def parse(obj: object) -> object:

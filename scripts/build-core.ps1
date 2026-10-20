@@ -1,11 +1,11 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Сборка ядра PyInstaller (onedir) в core\dist\jarvis-core\ — этот же скрипт запускает CI.
+    Сборка ядра PyInstaller (onedir) в core\dist\swyvorn-core\ — этот же скрипт запускает CI.
 .DESCRIPTION
     Сборка консольная (не --noconsole): оболочка общается с ядром через stdin/stdout,
     а окна консоли пользователь не видит, потому что оболочка запускает ядро без окна.
-    Результат — core\dist\jarvis-core\jarvis-core.exe и папка _internal рядом с ним;
+    Результат — core\dist\swyvorn-core\swyvorn-core.exe и папка _internal рядом с ним;
     установщик кладёт их в <ресурсы приложения>\core\.
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\build-core.ps1
@@ -41,9 +41,9 @@ try {
     Invoke-Native uv @(
         'run', '--locked', 'pyinstaller', '--noconfirm', '--clean', '--onedir', '--console',
         '--python-option', 'X utf8',
-        '--name', 'jarvis-core', '--contents-directory', '_internal',
+        '--name', 'swyvorn-core', '--contents-directory', '_internal',
         '--distpath', 'dist', '--workpath', 'build/pyinstaller', '--specpath', 'build',
-        'jarvis_entry.py'
+        'swyvorn_entry.py'
     )
 }
 finally {
@@ -51,4 +51,4 @@ finally {
 }
 
 Write-Host ''
-Write-Host "Готово: $([IO.Path]::Combine($coreDir, 'dist', 'jarvis-core'))" -ForegroundColor Green
+Write-Host "Готово: $([IO.Path]::Combine($coreDir, 'dist', 'swyvorn-core'))" -ForegroundColor Green

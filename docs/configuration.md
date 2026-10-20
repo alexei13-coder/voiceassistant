@@ -4,11 +4,11 @@
 
 | ОС | Папка данных |
 |---|---|
-| Windows | `%APPDATA%\Jarvis\` |
-| Linux (разработка) | `$XDG_CONFIG_HOME/jarvis/` или `~/.config/jarvis/` |
-| macOS (разработка) | `~/Library/Application Support/Jarvis/` |
+| Windows | `%APPDATA%\Swyvorn\` |
+| Linux (разработка) | `$XDG_CONFIG_HOME/swyvorn/` или `~/.config/swyvorn/` |
+| macOS (разработка) | `~/Library/Application Support/Swyvorn/` |
 
-Переопределить: переменная `JARVIS_DATA_DIR` или флаг `--data-dir`.
+Переопределить: переменная `SWYVORN_DATA_DIR` или флаг `--data-dir`.
 
 Внутри папки данных:
 
@@ -32,7 +32,7 @@ logs/core.log        лог ядра (ротация: 1 МБ × 5 файлов),
 
 ```toml
 [assistant]
-name = "Джарвис"              # имя ассистента
+name = "SWYVORN"              # имя ассистента
 address_form = "сэр"          # как обращаться к пользователю; спросим при первом запуске (этап 2)
 
 [llm]
@@ -62,13 +62,13 @@ level = "INFO"                # DEBUG | INFO | WARNING | ERROR
 ## Аргументы командной строки ядра
 
 ```
-python -m jarvis [--dev] [--port N] [--demo | --no-demo] [--no-stdin]
+python -m swyvorn [--dev] [--port N] [--demo | --no-demo] [--no-stdin]
                  [--data-dir PATH] [--log-level LEVEL]
 ```
 
 | Флаг | Значение |
 |---|---|
-| `--dev` | режим разработки: разрешены Origin `http://localhost:1420`, читается `.env` из корня репозитория, без `JARVIS_IPC_TOKEN` токен генерируется и печатается в stderr |
+| `--dev` | режим разработки: разрешены Origin `http://localhost:1420`, читается `.env` из корня репозитория, без `SWYVORN_IPC_TOKEN` токен генерируется и печатается в stderr |
 | `--port N` | порт WebSocket; `0` — случайный (по умолчанию: `0` без `--dev`, `8765` с `--dev`) |
 | `--demo` / `--no-demo` | переопределить `[demo] enabled` |
 | `--no-stdin` | не слушать управляющий канал stdin (запуск без оболочки) |

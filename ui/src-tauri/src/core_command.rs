@@ -20,9 +20,9 @@ pub fn resolve(app: &AppHandle) -> Result<CoreCommand, String> {
     // Папка `core/` — из tauri.bundle.conf.json; путь собирается по компонентам,
     // чтобы на Windows не смешивать `/` и `\`.
     const CORE_EXE: &str = if cfg!(windows) {
-        "jarvis-core.exe"
+        "swyvorn-core.exe"
     } else {
-        "jarvis-core"
+        "swyvorn-core"
     };
     let program = app
         .path()
@@ -52,15 +52,15 @@ pub fn resolve(_app: &AppHandle) -> Result<CoreCommand, String> {
         .map(|repo| repo.join("core"))
         .ok_or("Не удалось определить папку core/ репозитория")?;
 
-    let program = std::env::var_os("JARVIS_CORE_PROGRAM")
+    let program = std::env::var_os("SWYVORN_CORE_PROGRAM")
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "uv".into());
-    let args = match std::env::var("JARVIS_CORE_ARGS") {
+    let args = match std::env::var("SWYVORN_CORE_ARGS") {
         Ok(raw) if !raw.trim().is_empty() => raw.split_whitespace().map(OsString::from).collect(),
         _ => {
             let mut args: Vec<OsString> = vec!["run".into(), "--project".into()];
             args.push(core_dir.clone().into());
-            args.extend(["python", "-m", "jarvis", "--dev", "--port", "0"].map(OsString::from));
+            args.extend(["python", "-m", "swyvorn", "--dev", "--port", "0"].map(OsString::from));
             args
         }
     };

@@ -3,7 +3,7 @@
 // поэтому кадр анимации не вызывает ни одного ре-рендера.
 
 import { currentLevel } from '../live'
-import { type JarvisStore, useJarvis } from '../store'
+import { type SwyvornStore, useSwyvorn } from '../store'
 import { createCanvasRenderer } from './canvasRenderer'
 import { type OrbInputs, type OrbLevels, OrbModel } from './orbModel'
 import { getOrbTheme } from './orbTheme'
@@ -38,7 +38,7 @@ const MAX_PIXEL_RATIO = 2
 /** Потолок подложки: на 4K-мониторе огромное ядро не должно съедать видеокарту. */
 const MAX_BACKING_SIDE = 2048
 
-function toInputs(s: JarvisStore): OrbInputs {
+function toInputs(s: SwyvornStore): OrbInputs {
   return {
     state: s.state,
     stateChangedAt: s.stateChangedAt,
@@ -80,8 +80,8 @@ export function startOrbEngine(canvas: HTMLCanvasElement, options: OrbEngineOpti
 
   const model = new OrbModel(theme)
   // Хранилище меняется редко (единицы раз в секунду) — свежий снимок на каждое изменение дешевле сверок.
-  let inputs = toInputs(useJarvis.getState())
-  const unsubscribe = useJarvis.subscribe((s) => {
+  let inputs = toInputs(useSwyvorn.getState())
+  const unsubscribe = useSwyvorn.subscribe((s) => {
     inputs = toInputs(s)
   })
   const levels: OrbLevels = { mic: 0, tts: 0 }

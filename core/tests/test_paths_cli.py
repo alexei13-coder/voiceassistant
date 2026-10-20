@@ -4,37 +4,37 @@ from pathlib import Path
 
 import pytest
 
-from jarvis.__main__ import main
-from jarvis.cli import DEV_DEFAULT_PORT, ExitCode, parse_args
-from jarvis.paths import DataPaths, default_data_dir, resolve_data_dir
+from swyvorn.__main__ import main
+from swyvorn.cli import DEV_DEFAULT_PORT, ExitCode, parse_args
+from swyvorn.paths import DataPaths, default_data_dir, resolve_data_dir
 
 HOME = Path("/home/u")
-LINUX_DEFAULT = HOME / ".config" / "jarvis"
+LINUX_DEFAULT = HOME / ".config" / "swyvorn"
 
 
 def test_windows_data_dir() -> None:
     path = default_data_dir(platform="win32", env={"APPDATA": "/appdata"}, home=HOME)
-    assert path == Path("/appdata/Jarvis")
-    roaming = HOME / "AppData" / "Roaming" / "Jarvis"
+    assert path == Path("/appdata/Swyvorn")
+    roaming = HOME / "AppData" / "Roaming" / "Swyvorn"
     assert default_data_dir(platform="win32", env={}, home=HOME) == roaming
 
 
 def test_linux_data_dir() -> None:
     assert default_data_dir(platform="linux", env={}, home=HOME) == LINUX_DEFAULT
     assert default_data_dir(platform="linux", env={"XDG_CONFIG_HOME": "/xdg"}, home=HOME) == Path(
-        "/xdg/jarvis"
+        "/xdg/swyvorn"
     )
     # Относительный XDG_CONFIG_HOME по спецификации игнорируется.
     assert default_data_dir(platform="linux", env={"XDG_CONFIG_HOME": "rel"}, home=HOME) == LINUX_DEFAULT
 
 
 def test_macos_data_dir() -> None:
-    expected = HOME / "Library" / "Application Support" / "Jarvis"
+    expected = HOME / "Library" / "Application Support" / "Swyvorn"
     assert default_data_dir(platform="darwin", env={}, home=HOME) == expected
 
 
 def test_override_precedence(tmp_path: Path) -> None:
-    env = {"JARVIS_DATA_DIR": str(tmp_path / "from-env")}
+    env = {"SWYVORN_DATA_DIR": str(tmp_path / "from-env")}
     assert resolve_data_dir(tmp_path / "from-cli", env=env) == (tmp_path / "from-cli").resolve()
     assert resolve_data_dir(None, env=env) == (tmp_path / "from-env").resolve()
     assert resolve_data_dir(None, env={}, platform="linux") == default_data_dir(platform="linux", env={})

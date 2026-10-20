@@ -363,7 +363,7 @@ def _run(
     environ: Mapping[str, str],
     stdin: ReadChunk | None,
 ) -> int:
-    log.info("Джарвис %s, папка данных: %s", __version__, paths.root)
+    log.info("SWYVORN %s, папка данных: %s", __version__, paths.root)
     # До создания каких-либо файлов: процесс администратора не должен ничего записать.
     if (code := check_elevation(stdout)) is not None:
         return code
@@ -387,9 +387,11 @@ def _run(
 
     def announce_dev_token(port: int) -> None:
         # Мимо логирования намеренно: фильтр вырезал бы токен, а он нужен разработчику.
-        print(f"[jarvis] Режим разработки, токен UI: {token}", file=sys.stderr, flush=True)
+        print(f"[swyvorn] Режим разработки, токен UI: {token}", file=sys.stderr, flush=True)
         print(
-            f"[jarvis] Откройте http://localhost:1420/?port={port}&token={token}", file=sys.stderr, flush=True
+            f"[swyvorn] Откройте http://localhost:1420/?port={port}&token={token}",
+            file=sys.stderr,
+            flush=True,
         )
 
     if not options.no_stdin and stdin is None:

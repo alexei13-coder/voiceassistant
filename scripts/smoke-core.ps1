@@ -3,14 +3,14 @@
 .SYNOPSIS
     Проверка собранного ядра: запускается, сообщает ready, отвечает по WebSocket, не пишет токен в лог.
 .DESCRIPTION
-    Запускает jarvis-core --no-stdin --port 0 с временной папкой данных, ждёт строку
+    Запускает swyvorn-core --no-stdin --port 0 с временной папкой данных, ждёт строку
     {"type":"ready"} в stdout, проходит auth по WebSocket и получает hello, затем останавливает процесс.
 
     Ядро отказывается работать от имени администратора (код 3), а на раннерах GitHub Actions всё
     выполняется с правами администратора. Поэтому в таком сеансе ядро запускается с маркером
     уровня SAFER «обычный пользователь», где группа «Администраторы» только запрещающая.
 .PARAMETER CoreDir
-    Папка сборки ядра (по умолчанию core\dist\jarvis-core).
+    Папка сборки ядра (по умолчанию core\dist\swyvorn-core).
 .PARAMETER TimeoutSeconds
     Сколько секунд ждать сообщения ready.
 #>
@@ -31,7 +31,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace JarvisSmoke
+namespace SwyvornSmoke
 {
     public static class LimitedLauncher
     {
@@ -204,11 +204,11 @@ function Grant-CurrentUserAccess {
 function Start-Core {
     param([string] $Exe, [string] $WorkingDirectory, [string] $StdoutPath, [string] $StderrPath, [bool] $Limited)
     if ($Limited) {
-        if (-not ('JarvisSmoke.LimitedLauncher' -as [type])) {
+        if (-not ('SwyvornSmoke.LimitedLauncher' -as [type])) {
             Add-Type -TypeDefinition $limitedLauncherSource
         }
         $commandLine = "`"$Exe`" --no-stdin --port 0"
-        return [JarvisSmoke.LimitedLauncher]::Start($commandLine, $WorkingDirectory, $StdoutPath, $StderrPath)
+        return [SwyvornSmoke.LimitedLauncher]::Start($commandLine, $WorkingDirectory, $StdoutPath, $StderrPath)
     }
     $process = Start-Process -FilePath $Exe -ArgumentList @('--no-stdin', '--port', '0') -WorkingDirectory $WorkingDirectory `
         -RedirectStandardOutput $StdoutPath -RedirectStandardError $StderrPath -NoNewWindow -PassThru
@@ -296,16 +296,16 @@ function Receive-Hello {
 }
 
 if (-not $CoreDir) {
-    $CoreDir = [IO.Path]::Combine((Split-Path -Parent $PSScriptRoot), 'core', 'dist', 'jarvis-core')
+    $CoreDir = [IO.Path]::Combine((Split-Path -Parent $PSScriptRoot), 'core', 'dist', 'swyvorn-core')
 }
-$exeName = if ($env:OS -eq 'Windows_NT') { 'jarvis-core.exe' } else { 'jarvis-core' }
+$exeName = if ($env:OS -eq 'Windows_NT') { 'swyvorn-core.exe' } else { 'swyvorn-core' }
 $exe = Join-Path $CoreDir $exeName
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
     throw "Не найден $exe — сначала соберите ядро: scripts\build-core.ps1"
 }
 
 $tempRoot = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
-$workDir = Join-Path $tempRoot ('jarvis-smoke-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+$workDir = Join-Path $tempRoot ('swyvorn-smoke-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
 $dataDir = Join-Path $workDir 'data'
 $stdoutPath = Join-Path $workDir 'stdout.jsonl'
 $stderrPath = Join-Path $workDir 'stderr.log'
@@ -323,7 +323,7 @@ if ($limited) {
 # Те же переменные, что передаёт оболочка; после проверки возвращаются прежние значения.
 # PYTHONUTF8 собранное ядро игнорирует: режим UTF-8 включён при сборке (--python-option "X utf8"),
 # и --help ниже это проверяет — справка русская, а stdout в канале на раннере был бы в cp1252.
-$overrides = @{ JARVIS_IPC_TOKEN = $token; JARVIS_DATA_DIR = $dataDir; PYTHONUTF8 = '1' }
+$overrides = @{ SWYVORN_IPC_TOKEN = $token; SWYVORN_DATA_DIR = $dataDir; PYTHONUTF8 = '1' }
 $saved = @{}
 foreach ($name in $overrides.Keys) {
     $saved[$name] = [Environment]::GetEnvironmentVariable($name)

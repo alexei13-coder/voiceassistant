@@ -3,7 +3,7 @@
 
 import { getCoreConnection, onCoreStatus } from '../platform/tauri'
 import type { ClientMessage, CoreConnectionInfo, CoreStatusEvent, ServerMessage } from '../protocol'
-import { useJarvis, type ConnectionStatus } from '../store'
+import { useSwyvorn, type ConnectionStatus } from '../store'
 
 export const BACKOFF_MIN_MS = 250
 export const BACKOFF_MAX_MS = 5000
@@ -288,12 +288,12 @@ let localCore: LocalCore | null = null
 /** Запускает подключение к ядру. Повторные вызовы безопасны. */
 export function startConnection(): void {
   if (instance) return
-  const store = useJarvis.getState()
+  const store = useSwyvorn.getState()
   instance = new CoreConnection({
     getConnection: getCoreConnection,
     createSocket: browserSocket,
     subscribeCoreStatus: onCoreStatus,
-    onMessage: (msg) => useJarvis.getState().applyServerMessage(msg),
+    onMessage: (msg) => useSwyvorn.getState().applyServerMessage(msg),
     onStatus: store.setConnection,
     onCoreProcess: (e) => store.setCoreProcess(e.status, e.message),
   })

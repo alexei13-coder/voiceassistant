@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Разработка интерфейса в обычном браузере (Linux/macOS): ядро в режиме --dev и Vite с тем же токеном.
 # Оболочка Tauri здесь не участвует: нет трея, глобальных горячих клавиш и аварийного стопа.
-# Порт ядра можно сменить: JARVIS_DEV_PORT=8766 scripts/dev-browser.sh
+# Порт ядра можно сменить: SWYVORN_DEV_PORT=8766 scripts/dev-browser.sh
 # Остановка — Ctrl+C: скрипт завершит и ядро, и Vite.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-port="${JARVIS_DEV_PORT:-8765}"
+port="${SWYVORN_DEV_PORT:-8765}"
 ready_timeout_s=30
 
 require() {
@@ -20,7 +20,7 @@ require npm "Установите Node.js 22 LTS: https://nodejs.org/"
 
 # Свой случайный токен, а не сгенерированный ядром: его нужно заранее передать и ядру, и Vite.
 token="$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')"
-work_dir="$(mktemp -d "${TMPDIR:-/tmp}/jarvis-dev.XXXXXX")"
+work_dir="$(mktemp -d "${TMPDIR:-/tmp}/swyvorn-dev.XXXXXX")"
 core_stdout="$work_dir/core-stdout.jsonl"
 core_pid=""
 : >"$core_stdout"
@@ -43,8 +43,8 @@ echo "==> Зависимости ядра (uv sync)"
 
 echo "==> Запуск ядра на порту $port"
 # stdout ядра — канал JSON Lines (ready, fatal); логи идут в stderr, то есть в этот терминал.
-JARVIS_IPC_TOKEN="$token" uv run --project "$repo_root/core" \
-  python -m jarvis --dev --no-stdin --port "$port" >"$core_stdout" &
+SWYVORN_IPC_TOKEN="$token" uv run --project "$repo_root/core" \
+  python -m swyvorn --dev --no-stdin --port "$port" >"$core_stdout" &
 core_pid=$!
 
 if [[ ! -d "$repo_root/ui/node_modules" ]]; then
@@ -60,7 +60,7 @@ until grep -q '"type":"ready"' "$core_stdout"; do
     core_pid=""
     echo "Ядро завершилось с кодом $code, не успев запуститься — причина в журнале выше." >&2
     if [[ "$code" -eq 4 ]]; then
-      echo "Порт $port занят. Укажите другой: JARVIS_DEV_PORT=8766 $0" >&2
+      echo "Порт $port занят. Укажите другой: SWYVORN_DEV_PORT=8766 $0" >&2
     fi
     exit 1
   fi

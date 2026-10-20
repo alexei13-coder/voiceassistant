@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react'
 import { sendCommand } from '../core/connection'
 import { DEFAULT_ACTIVATE_HOTKEY } from '../labels'
 import type { ClientMessage } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { Icon } from './Icon'
 import { StopButton } from './StopButton'
 import './BottomBar.css'
@@ -17,13 +17,13 @@ const COUNTER_FROM = MAX_TEXT - 400
 /** Отправить команду; если связи нет — сказать об этом, а не молчать. */
 function send(msg: ClientMessage): boolean {
   if (sendCommand(msg)) return true
-  useJarvis.getState().addNotice('warning', 'Нет связи с ядром — команда не отправлена', 'not_sent')
+  useSwyvorn.getState().addNotice('warning', 'Нет связи с ядром — команда не отправлена', 'not_sent')
   return false
 }
 
 function MicButton({ disabled }: { disabled: boolean }) {
-  const listening = useJarvis((s) => s.state === 'listening')
-  const hotkey = useJarvis((s) => s.info?.hotkeys.activate || DEFAULT_ACTIVATE_HOTKEY)
+  const listening = useSwyvorn((s) => s.state === 'listening')
+  const hotkey = useSwyvorn((s) => s.info?.hotkeys.activate || DEFAULT_ACTIVATE_HOTKEY)
   return (
     <button
       type="button"
@@ -40,8 +40,8 @@ function MicButton({ disabled }: { disabled: boolean }) {
 }
 
 function MuteButton({ disabled }: { disabled: boolean }) {
-  const muted = useJarvis((s) => s.muted)
-  const hotkey = useJarvis((s) => s.info?.hotkeys.mute)
+  const muted = useSwyvorn((s) => s.muted)
+  const hotkey = useSwyvorn((s) => s.info?.hotkeys.mute)
   return (
     <button
       type="button"
@@ -97,7 +97,7 @@ function CommandInput({ disabled }: { disabled: boolean }) {
 }
 
 export function BottomBar() {
-  const connected = useJarvis((s) => s.connection === 'connected')
+  const connected = useSwyvorn((s) => s.connection === 'connected')
   return (
     <footer className="bottombar">
       <div className="bottombar__controls">

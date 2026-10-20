@@ -11,7 +11,7 @@ describe('stateHint', () => {
 
   it('без hello — значения по умолчанию', () => {
     expect(stateHint('idle', { reason: null, activateHotkey: undefined, assistantName: undefined })).toBe(
-      'Скажите „Джарвис“ или нажмите Ctrl+Alt+J',
+      'Скажите „SWYVORN“ или нажмите Ctrl+Alt+J',
     )
   })
 
@@ -44,10 +44,10 @@ describe('stateHint', () => {
 
 describe('roleLabel', () => {
   it('подписи ролей', () => {
-    expect(roleLabel('user', 'Джарвис')).toBe('ВЫ')
-    expect(roleLabel('system', 'Джарвис')).toBe('СИСТЕМА')
-    expect(roleLabel('assistant', 'Джарвис')).toBe('ДЖАРВИС')
-    expect(roleLabel('assistant', '')).toBe('ДЖАРВИС')
+    expect(roleLabel('user', 'SWYVORN')).toBe('ВЫ')
+    expect(roleLabel('system', 'SWYVORN')).toBe('СИСТЕМА')
+    expect(roleLabel('assistant', 'SWYVORN')).toBe('SWYVORN')
+    expect(roleLabel('assistant', '')).toBe('SWYVORN')
   })
 })
 

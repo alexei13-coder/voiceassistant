@@ -1,13 +1,13 @@
 [package]
-name = "jarvis"
+name = "swyvorn"
 version = "0.1.0"
-description = "Джарвис — оболочка Tauri: трей, горячие клавиши, запуск ядра"
+description = "SWYVORN — оболочка Tauri: трей, горячие клавиши, запуск ядра"
 edition = "2021"
 rust-version = "1.85"
 publish = false
 
 [lib]
-name = "jarvis_lib"
+name = "swyvorn_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

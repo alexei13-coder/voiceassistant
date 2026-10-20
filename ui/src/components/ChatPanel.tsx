@@ -5,7 +5,7 @@ import { memo, useLayoutEffect, useRef, useState, type UIEvent } from 'react'
 import { formatTimeShort } from '../format'
 import { DEFAULT_ACTIVATE_HOTKEY, DEFAULT_ASSISTANT_NAME, roleLabel } from '../labels'
 import type { ChatMessage } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { Icon } from './Icon'
 import { Panel } from './Panel'
 import './ChatPanel.css'
@@ -43,9 +43,9 @@ function EmptyChat({ assistantName, hotkey }: { assistantName: string; hotkey: s
 }
 
 export function ChatPanel() {
-  const messages = useJarvis((s) => s.messages)
-  const assistantName = useJarvis((s) => s.info?.assistantName || DEFAULT_ASSISTANT_NAME)
-  const hotkey = useJarvis((s) => s.info?.hotkeys.activate || DEFAULT_ACTIVATE_HOTKEY)
+  const messages = useSwyvorn((s) => s.messages)
+  const assistantName = useSwyvorn((s) => s.info?.assistantName || DEFAULT_ASSISTANT_NAME)
+  const hotkey = useSwyvorn((s) => s.info?.hotkeys.activate || DEFAULT_ACTIVATE_HOTKEY)
   const feedRef = useRef<HTMLDivElement>(null)
   const [pinned, setPinned] = useState(true)
   /** id последней реплики в момент, когда пользователь отлистал вверх. */

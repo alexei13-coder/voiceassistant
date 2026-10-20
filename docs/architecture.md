@@ -2,10 +2,10 @@
 
 ## Процессы
 
-1. **Jarvis.exe** — Rust-оболочка Tauri 2. Окно HUD (WebView2), трей, глобальные горячие клавиши, автозапуск, запуск и аварийная остановка ядра.
-2. **jarvis-core.exe** — Python-ядро (PyInstaller, onedir, консольная сборка без окна). Вся логика: состояние, демо-сценарий, метрики, позже — мозг, голос, инструменты, безопасность.
+1. **Swyvorn.exe** — Rust-оболочка Tauri 2. Окно HUD (WebView2), трей, глобальные горячие клавиши, автозапуск, запуск и аварийная остановка ядра.
+2. **swyvorn-core.exe** — Python-ядро (PyInstaller, onedir, консольная сборка без окна). Вся логика: состояние, демо-сценарий, метрики, позже — мозг, голос, инструменты, безопасность.
 
-Оболочка запускает ядро как дочерний процесс в Job Object, передаёт `JARVIS_IPC_TOKEN` и `PYTHONUTF8=1`, читает `ready` из stdout. Протокол — в [protocol.md](protocol.md).
+Оболочка запускает ядро как дочерний процесс в Job Object, передаёт `SWYVORN_IPC_TOKEN` и `PYTHONUTF8=1`, читает `ready` из stdout. Протокол — в [protocol.md](protocol.md).
 
 Собранное PyInstaller ядро игнорирует переменные `PYTHON*`, поэтому режим UTF-8 зашит в сборку флагом `--python-option "X utf8"` (см. `scripts/build-core.ps1`). `PYTHONUTF8=1` нужен только при запуске из исходников.
 
@@ -13,8 +13,8 @@
 
 ```
 core/                      Python 3.12 (uv)
-  jarvis/
-    __main__.py            точка входа: python -m jarvis
+  swyvorn/
+    __main__.py            точка входа: python -m swyvorn
     app.py                 сборка компонентов и главный цикл
     cli.py                 разбор аргументов
     config.py              settings.toml + .env (SecretStr)

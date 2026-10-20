@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { sendCommand } from '../core/connection'
 import { STATE_LABELS, type AssistantState, type ClientMessage } from '../protocol'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { Icon } from './Icon'
 import './DemoControls.css'
 
@@ -19,13 +19,13 @@ const SCENARIO_BUTTONS: Array<{ label: string; msg: DemoMessage }> = [
 ]
 
 function send(msg: DemoMessage): void {
-  if (!sendCommand(msg)) useJarvis.getState().addNotice('warning', 'Нет связи с ядром', 'demo_not_sent')
+  if (!sendCommand(msg)) useSwyvorn.getState().addNotice('warning', 'Нет связи с ядром', 'demo_not_sent')
 }
 
 export function DemoControls() {
-  const demo = useJarvis((s) => s.info?.demo ?? false)
-  const confirming = useJarvis((s) => s.confirmation !== null)
-  const current = useJarvis((s) => s.state)
+  const demo = useSwyvorn((s) => s.info?.demo ?? false)
+  const confirming = useSwyvorn((s) => s.confirmation !== null)
+  const current = useSwyvorn((s) => s.state)
   const [open, setOpen] = useState(false)
 
   if (!demo || confirming) return null

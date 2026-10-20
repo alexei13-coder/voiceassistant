@@ -52,8 +52,8 @@ def _log_level(value: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m jarvis",
-        description="Ядро голосового ассистента «Джарвис».",
+        prog="python -m swyvorn",
+        description="Ядро голосового ассистента «SWYVORN».",
     )
     parser.add_argument("--dev", action="store_true", help="режим разработки")
     parser.add_argument(

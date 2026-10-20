@@ -1,7 +1,7 @@
 // Всплывающие уведомления справа сверху. info/warning живут 6 с, error — 10 с.
 
 import { memo, useEffect } from 'react'
-import { useJarvis, type Notice } from '../store'
+import { useSwyvorn, type Notice } from '../store'
 import { Icon, type IconName } from './Icon'
 import './Notices.css'
 
@@ -13,7 +13,7 @@ const Toast = memo(function Toast({ notice }: { notice: Notice }) {
   useEffect(() => {
     // Отсчёт от момента создания: перерисовка списка не продлевает жизнь уведомлению.
     const left = Math.max(0, notice.createdAt + LIFETIME_MS[level] - Date.now())
-    const timer = setTimeout(() => useJarvis.getState().dismissNotice(id), left)
+    const timer = setTimeout(() => useSwyvorn.getState().dismissNotice(id), left)
     return () => clearTimeout(timer)
   }, [id, level, notice.createdAt])
 
@@ -21,7 +21,7 @@ const Toast = memo(function Toast({ notice }: { notice: Notice }) {
     <li className={`toast toast--${level}`} role={level === 'error' ? 'alert' : 'status'}>
       <Icon name={ICONS[level]} className="toast__icon" />
       <p className="toast__text">{notice.text}</p>
-      <button type="button" className="toast__close" onClick={() => useJarvis.getState().dismissNotice(id)} aria-label="Закрыть уведомление">
+      <button type="button" className="toast__close" onClick={() => useSwyvorn.getState().dismissNotice(id)} aria-label="Закрыть уведомление">
         <Icon name="close" />
       </button>
     </li>
@@ -29,7 +29,7 @@ const Toast = memo(function Toast({ notice }: { notice: Notice }) {
 })
 
 export function Notices() {
-  const notices = useJarvis((s) => s.notices)
+  const notices = useSwyvorn((s) => s.notices)
   if (notices.length === 0) return null
   return (
     <ol className="toasts" aria-label="Уведомления">

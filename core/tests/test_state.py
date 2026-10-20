@@ -4,7 +4,7 @@ import itertools
 
 import pytest
 
-from jarvis.state import ALLOWED_TRANSITIONS, AssistantState, IllegalTransitionError, StateMachine
+from swyvorn.state import ALLOWED_TRANSITIONS, AssistantState, IllegalTransitionError, StateMachine
 
 S = AssistantState
 

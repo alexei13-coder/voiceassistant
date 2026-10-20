@@ -126,7 +126,7 @@ class StdinReader:
         if self._thread is not None:
             return
         # daemon: поток, застрявший в чтении, не должен задерживать выход процесса.
-        self._thread = threading.Thread(target=self._run, name="jarvis-stdin", daemon=True)
+        self._thread = threading.Thread(target=self._run, name="swyvorn-stdin", daemon=True)
         self._thread.start()
 
     def _run(self) -> None:

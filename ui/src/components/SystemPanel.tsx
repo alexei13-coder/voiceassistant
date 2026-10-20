@@ -1,7 +1,7 @@
 // Панель «СИСТЕМА»: ЦП и ОЗУ, сеть с графиком, время работы ядра и крупные часы.
 
 import { formatMemory, formatRate, formatUptime } from '../format'
-import { useJarvis } from '../store'
+import { useSwyvorn } from '../store'
 import { BigClock } from './Clock'
 import { Gauge } from './Gauge'
 import { Panel } from './Panel'
@@ -21,8 +21,8 @@ function NetRow({ arrow, label, bps, kind }: { arrow: string; label: string; bps
 }
 
 export function SystemPanel() {
-  const metrics = useJarvis((s) => s.metrics)
-  const netHistory = useJarvis((s) => s.netHistory)
+  const metrics = useSwyvorn((s) => s.metrics)
+  const netHistory = useSwyvorn((s) => s.netHistory)
   const live = metrics !== null
 
   return (

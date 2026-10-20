@@ -14,19 +14,19 @@ from typing import Any
 import pytest
 from websockets.asyncio.client import ClientConnection, connect
 
-import jarvis.app
-from jarvis.api.control import StdoutChannel
-from jarvis.app import Application
-from jarvis.bus import EventBus
-from jarvis.cli import CliOptions
-from jarvis.config import Settings, settings_from_mapping
-from jarvis.confirmation import ConfirmationGate
-from jarvis.demo import DemoController, DemoTimings
-from jarvis.killswitch import KillSwitch
-from jarvis.platform.elevation import check_elevation
-from jarvis.protocol import ServerMessage, StateMessage
-from jarvis.session import Session
-from jarvis.state import StateMachine
+import swyvorn.app
+from swyvorn.api.control import StdoutChannel
+from swyvorn.app import Application
+from swyvorn.bus import EventBus
+from swyvorn.cli import CliOptions
+from swyvorn.config import Settings, settings_from_mapping
+from swyvorn.confirmation import ConfirmationGate
+from swyvorn.demo import DemoController, DemoTimings
+from swyvorn.killswitch import KillSwitch
+from swyvorn.platform.elevation import check_elevation
+from swyvorn.protocol import ServerMessage, StateMessage
+from swyvorn.session import Session
+from swyvorn.state import StateMachine
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ def _not_elevated(monkeypatch: pytest.MonkeyPatch) -> None:
     Тесты, проверяющие сам запрет, ставят свой monkeypatch поверх этого.
     """
     monkeypatch.setattr(
-        jarvis.app, "check_elevation", lambda stdout: check_elevation(stdout, is_admin=lambda: False)
+        swyvorn.app, "check_elevation", lambda stdout: check_elevation(stdout, is_admin=lambda: False)
     )
 
 

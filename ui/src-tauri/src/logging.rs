@@ -10,7 +10,7 @@ use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 /// поэтому в лог оболочки они попадают только в отладке.
 pub const CORE_TARGET: &str = "core";
 
-const DATA_DIR_ENV: &str = "JARVIS_DATA_DIR";
+const DATA_DIR_ENV: &str = "SWYVORN_DATA_DIR";
 const MAX_FILE_BYTES: u128 = 1024 * 1024;
 
 pub fn plugin<R: Runtime>(app: &AppHandle<R>) -> TauriPlugin<R> {
@@ -44,7 +44,7 @@ pub fn plugin<R: Runtime>(app: &AppHandle<R>) -> TauriPlugin<R> {
 }
 
 /// Папка данных — по тем же правилам, что у ядра (docs/configuration.md):
-/// `JARVIS_DATA_DIR`, иначе `%APPDATA%\Jarvis`, `~/.config/jarvis`, `~/Library/Application Support/Jarvis`.
+/// `SWYVORN_DATA_DIR`, иначе `%APPDATA%\Swyvorn`, `~/.config/swyvorn`, `~/Library/Application Support/Swyvorn`.
 fn data_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     if let Some(dir) = std::env::var(DATA_DIR_ENV)
         .ok()
@@ -54,9 +54,9 @@ fn data_dir<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
         return Some(PathBuf::from(dir));
     }
     let folder = if cfg!(target_os = "linux") {
-        "jarvis"
+        "swyvorn"
     } else {
-        "Jarvis"
+        "Swyvorn"
     };
     app.path().config_dir().ok().map(|base| base.join(folder))
 }
