@@ -87,6 +87,24 @@
   transition: transform var(--dur) var(--ease);
 }
 
+/* ---------- расход на API ---------- */
+
+.usage {
+  cursor: default;
+}
+
+.usage__month {
+  color: var(--text-dim);
+}
+
+.usage__track--warn .meter__fill {
+  background: var(--amber);
+}
+
+.usage__track--over .meter__fill {
+  background: var(--red);
+}
+
 @media (max-width: 1279px) {
   .kv__sub {
     display: none;

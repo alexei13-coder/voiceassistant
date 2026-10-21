@@ -114,3 +114,25 @@ export function formatHotkey(combo: string): string {
     .map((key) => (key.toLowerCase() === 'escape' ? 'Esc' : key))
     .join('+')
 }
+
+/**
+ * Стоимость в долларах — с точкой, как в счетах Anthropic: «$0.034», «$0.42», «$12.50».
+ * До 10 центов — три знака, иначе копейки съедали бы весь расход сессии.
+ */
+export function formatUsd(value: number): string {
+  const v = safeNumber(value)
+  if (v === 0) return '$0'
+  if (v < 0.001) return '<$0.001'
+  return `$${v.toFixed(v < 0.1 ? 3 : 2)}`
+}
+
+/** Лимит в долларах: целый — без дробной части («$5»). */
+export function formatUsdLimit(value: number): string {
+  const v = safeNumber(value)
+  return Number.isInteger(v) ? `$${v}` : `$${v.toFixed(2)}`
+}
+
+/** Целое число с разрядами через неразрывный пробел: «12 480». */
+export function formatCount(value: number): string {
+  return String(Math.round(safeNumber(value))).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+}

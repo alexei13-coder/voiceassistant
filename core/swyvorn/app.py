@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import os
 import signal
@@ -15,9 +16,16 @@ import sys
 from collections.abc import Callable, Coroutine, Mapping
 from typing import Any, BinaryIO
 
+from pydantic import SecretStr
+
 from . import __version__
 from .api.control import ReadChunk, StdinReader, StdoutChannel, stdin_reader_source
 from .api.ws_server import HOST, ClientChannel, WsServer
+from .brain.client import ClientFactory, KeyStore, make_client, resolve_base_url
+from .brain.memory import MemoryStore, MemoryUpdateError
+from .brain.service import Brain, BrainTimings
+from .brain.storage import CorruptedFileError
+from .brain.usage import UsageTracker
 from .bus import EventBus
 from .cli import CliOptions, ExitCode
 from .config import (
@@ -27,6 +35,7 @@ from .config import (
     load_environment,
     load_secrets,
     load_settings,
+    make_key_loader,
     resolve_ipc_token,
     scrub_secret_environment,
 )
@@ -47,13 +56,18 @@ from .protocol import (
     HotkeyErrorMessage,
     HotkeyMessage,
     Hotkeys,
+    MemoryClearMessage,
+    MemoryDeleteMessage,
+    MemoryMessage,
     MicMessage,
     MuteMessage,
+    NewSessionMessage,
     PingMessage,
     PongMessage,
     ProtocolError,
     SendTextMessage,
     ServerMessage,
+    SessionResetMessage,
     ShellMessage,
     ShutdownMessage,
     StateMessage,
@@ -86,8 +100,13 @@ class Application:
         settings: Settings,
         token: str,
         stdout: StdoutChannel,
+        paths: DataPaths,
+        api_key: SecretStr | None = None,
+        key_loader: Callable[[], SecretStr | None] | None = None,
+        client_factory: ClientFactory = make_client,
         stdin: ReadChunk | None = None,
         demo_timings: DemoTimings | None = None,
+        brain_timings: BrainTimings | None = None,
         return_to_idle_after: float = RETURN_TO_IDLE_AFTER,
         metrics_interval: float = SAMPLE_INTERVAL,
         handle_signals: bool = True,
@@ -99,7 +118,12 @@ class Application:
         self._stdin = stdin
         self._handle_signals = handle_signals
         self._on_ready = on_ready
-        self.demo_enabled = settings.demo.enabled if options.demo is None else options.demo
+        # docs/brain.md, «Режимы»: --demo — демо всегда; без флага демо идёт, пока нет ключа
+        # и разрешено [demo] enabled; --no-demo — никогда (без ключа «мозг» скажет no_key).
+        self._demo_forced = options.demo is True
+        self.demo_enabled = self._demo_forced or (
+            options.demo is None and settings.demo.enabled and api_key is None
+        )
         self.hotkeys = Hotkeys.model_validate(settings.hotkeys.model_dump())
 
         self.bus: EventBus[ServerMessage] = EventBus()
@@ -122,6 +146,26 @@ class Application:
             assistant=settings.assistant,
             scenario_enabled=self.demo_enabled,
             timings=demo_timings,
+        )
+        self.memory = MemoryStore(paths.memory_file)
+        self.usage = UsageTracker(paths.usage_file, monthly_limit_usd=settings.llm.monthly_limit_usd)
+        self._report_corrupted(self.memory.load(), "памяти", "память начата заново")
+        self._report_corrupted(self.usage.load(), "расходов", "учёт за месяц начат заново")
+        self.brain = Brain(
+            llm=settings.llm,
+            assistant=settings.assistant,
+            session=self.session,
+            state_machine=self.state_machine,
+            killswitch=self.killswitch,
+            bus=self.bus,
+            memory=self.memory,
+            usage=self.usage,
+            keys=KeyStore(api_key, key_loader or (lambda: api_key)),
+            client_factory=client_factory,
+            env_file=paths.env_file,
+            limit_loader=lambda: load_settings(paths.settings_file).llm.monthly_limit_usd,
+            demo=self.demo_enabled,
+            timings=brain_timings,
         )
         self.metrics = MetricsSampler(self.bus.publish, interval=metrics_interval)
         self.ws = WsServer(
@@ -160,9 +204,7 @@ class Application:
                     on_eof=lambda: self.request_shutdown("stdin закрыт"),
                 ).start()
             self._stdout.ready(self.port, self.hotkeys)
-            log.info(
-                "Ядро готово: ws://%s:%d/ws, демо: %s", HOST, self.port, "да" if self.demo_enabled else "нет"
-            )
+            log.info("Ядро готово: ws://%s:%d/ws, «мозг»: %s", HOST, self.port, self.brain.status)
             if self._on_ready is not None:
                 self._on_ready(self.port)
             await self._shutdown.wait()
@@ -182,6 +224,7 @@ class Application:
         try:
             async with asyncio.timeout(SHUTDOWN_BUDGET):
                 await self.killswitch.shutdown(grace=0.3)
+                await self.brain.aclose()
                 await self.metrics.stop()
                 await self.ws.close(grace=1.0)
                 for task in tuple(self._background):
@@ -226,7 +269,7 @@ class Application:
             demo=self.demo_enabled,
             assistant_name=settings.assistant.name,
             wake_word=settings.assistant.wake_word,
-            address_form=settings.assistant.address_form,
+            address_form=self.brain.address_form(),
             model=settings.llm.model,
             hotkeys=self.hotkeys,
             ui=UiFlags(reduced_motion=settings.ui.reduced_motion),
@@ -234,6 +277,9 @@ class Application:
             history=self.session.history(),
             actions=self.session.actions(),
             confirmation=self.confirmations.current,
+            brain=self.brain.info(),
+            usage=self.brain.hello_usage(),
+            memory=self.memory.facts(),
         )
         return [hello, *self.session.sticky_notices()]
 
@@ -247,7 +293,13 @@ class Application:
     async def handle_client_message(self, message: ClientMessage, client: ClientChannel) -> None:
         match message:
             case SendTextMessage(text=text):
-                self.demo.handle_user_text(text)
+                self._send_text(text)
+            case NewSessionMessage():
+                await self._new_session()
+            case MemoryDeleteMessage(key=key):
+                self._change_memory(lambda: self.memory.forget(key) is not None, client)
+            case MemoryClearMessage():
+                self._change_memory(lambda: self.memory.clear() > 0, client)
             case ConfirmMessage(action_id=action_id, nonce=nonce, decision=decision):
                 if not self.confirmations.submit(action_id, nonce, decision, "button"):
                     raise ProtocolError(
@@ -271,6 +323,44 @@ class Application:
                 await self.demo.command(action, state)
             case AuthMessage():
                 raise ProtocolError("bad_message", "Авторизация уже выполнена")
+
+    def _send_text(self, text: str) -> None:
+        if self.demo_enabled and not self._demo_forced and self.brain.key_appeared():
+            # Ключ дописали в .env, пока шло демо: дальше отвечает Claude, без перезапуска.
+            log.info("Появился ключ API — демо-сценарий выключен")
+            self.demo.retire()
+            self.demo_enabled = False
+            self.brain.leave_demo()
+        if self.demo_enabled:
+            self.demo.handle_user_text(text)
+        else:
+            self.brain.send_text(text)
+
+    async def _new_session(self) -> None:
+        if not self.demo_enabled:
+            await self.brain.new_session()
+        self.session.clear_history()
+        self.bus.publish(SessionResetMessage())
+
+    def _change_memory(self, change: Callable[[], bool], client: ClientChannel) -> None:
+        """Удаление из HUD. Если ничего не изменилось, клиент всё равно получает список —
+        его лента памяти могла разойтись с ядром."""
+        try:
+            changed = change()
+        except MemoryUpdateError as exc:
+            self.session.notice("error", str(exc))
+            return
+        if not changed:
+            client.send(MemoryMessage(facts=self.memory.facts()))
+
+    def _report_corrupted(self, problem: CorruptedFileError | None, what: str, consequence: str) -> None:
+        if problem is None:
+            return
+        backup = problem.backup
+        saved = f"копия — {backup.name}" if backup is not None else "копию сохранить не удалось"
+        self.session.notice(
+            "warning", f"Файл {what} {problem.path.name} был повреждён ({saved}), {consequence}.", sticky=True
+        )
 
     def _set_muted(self, muted: bool) -> None:
         if muted:
@@ -381,7 +471,8 @@ def _run(
     scrub_secret_environment()
     if secrets.anthropic_api_key is not None:
         REDACTOR.register(secrets.anthropic_api_key.get_secret_value())
-    log.info("Ключ API: %s", "задан" if secrets.anthropic_api_key else "не задан (на этапе 1 не нужен)")
+    log.info("Ключ API: %s", "задан" if secrets.anthropic_api_key else "не задан")
+    client_factory = functools.partial(make_client, base_url=resolve_base_url(env, dev=options.dev))
 
     try:
         token, generated = resolve_ipc_token(env, dev=options.dev)
@@ -412,6 +503,10 @@ def _run(
             settings=settings,
             token=token,
             stdout=stdout,
+            paths=paths,
+            api_key=secrets.anthropic_api_key,
+            key_loader=make_key_loader(paths, dev=options.dev, environ=environ),
+            client_factory=client_factory,
             stdin=None if options.no_stdin else stdin,
             on_ready=announce_dev_token if generated else None,
         )

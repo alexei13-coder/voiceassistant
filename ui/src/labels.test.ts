@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import type { AssistantState } from './protocol'
-import { STATE_WORDS, connectionBanner, offlineHint, roleLabel, stateHint } from './labels'
+import type { AssistantState, BrainInfo } from './protocol'
+import {
+  BRAIN_LABELS,
+  STATE_WORDS,
+  brainTooltip,
+  connectionBanner,
+  memoryKeyLabel,
+  needsApiKey,
+  offlineHint,
+  roleLabel,
+  stateHint,
+} from './labels'
 
 const ctx = { reason: null, activateHotkey: 'Ctrl+Shift+Space', wakeWord: 'Пятница' }
 
@@ -87,5 +97,41 @@ describe('connectionBanner', () => {
   it('обрыв и неверный токен', () => {
     expect(connectionBanner('disconnected', 'ready', null)?.text).toBe('Нет связи с ядром — переподключаюсь…')
     expect(connectionBanner('unauthorized', null, null)).toEqual({ level: 'error', text: 'Ошибка доступа к ядру (токен)' })
+  })
+})
+
+describe('Claude в верхней панели', () => {
+  const brain: BrainInfo = { status: 'ready', model: 'claude-opus-5-5', web_search: true, message: null }
+
+  it('короткие подписи строчными', () => {
+    for (const w of Object.values(BRAIN_LABELS)) expect(w).toBe(w.toLowerCase())
+    expect(BRAIN_LABELS.invalid_key).toBe('ключ не подошёл')
+  })
+
+  it('подсказка: модель, поиск и пояснение ядра', () => {
+    expect(brainTooltip(brain)).toBe('Claude на связи · модель claude-opus-5-5 · поиск в интернете')
+    expect(brainTooltip({ ...brain, status: 'offline', web_search: false, message: 'Нет связи с Claude. Проверьте интернет.' })).toBe(
+      'Нет связи с Claude. Проверьте интернет.\nмодель claude-opus-5-5',
+    )
+    expect(brainTooltip({ ...brain, status: 'demo' })).toContain('Демо-режим')
+    expect(brainTooltip({ ...brain, status: 'limit', message: '  ' })).toContain('лимит')
+  })
+
+  it('совет про ключ — только без ключа или с неверным', () => {
+    expect(needsApiKey('no_key')).toBe(true)
+    expect(needsApiKey('invalid_key')).toBe(true)
+    expect(needsApiKey('ready')).toBe(false)
+    expect(needsApiKey('demo')).toBe(false)
+    expect(needsApiKey(undefined)).toBe(false)
+  })
+})
+
+describe('memoryKeyLabel', () => {
+  it('особые ключи по-русски, прочие без подчёркиваний', () => {
+    expect(memoryKeyLabel('address_form')).toBe('обращение')
+    expect(memoryKeyLabel('user_name')).toBe('имя')
+    expect(memoryKeyLabel('city')).toBe('город')
+    expect(memoryKeyLabel('favorite_editor')).toBe('favorite editor')
+    expect(memoryKeyLabel('constructor')).toBe('constructor')
   })
 })

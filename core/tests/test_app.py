@@ -12,7 +12,9 @@ import threading
 from pathlib import Path
 
 import pytest
+from conftest import API_KEY as FAKE_KEY
 from conftest import TAURI_ORIGIN, TOKEN, open_client, recv_json, recv_until, running_app
+from fakes.fake_anthropic import FakeAnthropic, Script
 from websockets.exceptions import ConnectionClosed
 
 from swyvorn import app as app_module
@@ -35,7 +37,7 @@ async def test_ready_is_the_only_stdout_line() -> None:
         assert len(lines) == 1
         assert lines[0]["type"] == "ready"
         assert lines[0]["port"] == core.port
-        assert lines[0]["protocol"] == 1
+        assert lines[0]["protocol"] == 2
         assert lines[0]["hotkeys"]["stop"] == "Ctrl+Alt+Escape"
 
 
@@ -54,15 +56,23 @@ async def test_hello_snapshot_and_live_metrics() -> None:
 
 
 async def test_send_text_and_stop_over_websocket() -> None:
-    async with running_app() as core:
+    fake = FakeAnthropic()
+    reply = Script().text("Начинаю длинный ответ, который не успеет закончиться").end()
+    reply.hold, reply.hold_after = asyncio.Event(), 6  # стрим замирает после первого куска текста
+    fake.push(reply)
+    async with running_app(api_key=FAKE_KEY, fake=fake) as core:
         ws = await open_client(core.port)
         await recv_json(ws)
         await ws.send(json.dumps({"type": "send_text", "text": "  Привет  "}))
         user = await recv_until(ws, "chat_message")
         assert (user["message"]["role"], user["message"]["text"]) == ("user", "Привет")
         await recv_until(ws, "state", state="thinking")
+        await recv_until(ws, "state", state="speaking")
+        answer = (await recv_until(ws, "chat_message"))["message"]
         await ws.send(json.dumps({"type": "stop", "source": "button"}))
         assert (await recv_until(ws, "stopped"))["source"] == "button"
+        assert (await recv_until(ws, "chat_delta", id=answer["id"]))["delta"] == " (остановлено)"
+        await recv_until(ws, "chat_done", id=answer["id"])
         await recv_until(ws, "state", state="idle")
         await ws.close()
 
@@ -198,10 +208,11 @@ async def test_stdin_eof_triggers_shutdown() -> None:
         assert core.rec.of_type("muted")[0].muted is True
 
 
-async def test_port_in_use_exit_4() -> None:
+async def test_port_in_use_exit_4(tmp_path: Path) -> None:
     from swyvorn.api.control import StdoutChannel
     from swyvorn.app import Application
     from swyvorn.config import Settings
+    from swyvorn.paths import DataPaths
 
     with socket.socket() as busy:
         busy.bind(("127.0.0.1", 0))
@@ -213,6 +224,7 @@ async def test_port_in_use_exit_4() -> None:
             settings=Settings(),
             token=TOKEN,
             stdout=StdoutChannel(stdout),
+            paths=DataPaths(tmp_path),
             handle_signals=False,
         )
         assert await app.run() == ExitCode.PORT_UNAVAILABLE == 4

@@ -1,7 +1,8 @@
-// Верхняя панель: слева — знак SWYVORN, справа — тихий кластер статусов и (в Tauri) кнопки окна.
+// Верхняя панель: слева — знак SWYVORN, справа — тихий кластер статусов (Claude, связь с ядром,
+// микрофон, часы) и (в Tauri) кнопки окна.
 // Фон панели — область перетаскивания окна (data-tauri-drag-region).
 
-import { CONNECTION_LABELS, STATE_COLOR_VARS, STATE_WORDS } from '../labels'
+import { BRAIN_LABELS, CONNECTION_LABELS, STATE_COLOR_VARS, STATE_WORDS, brainTooltip } from '../labels'
 import { isTauri, windowControls } from '../platform/tauri'
 import { useSwyvorn } from '../store'
 import { TopClock } from './Clock'
@@ -23,6 +24,21 @@ function Brand() {
         SWYVORN
       </span>
     </div>
+  )
+}
+
+/** Claude: готов, нет ключа, нет связи, лимит или демо. Без связи с ядром статус устарел — точка серая. */
+function BrainIndicator() {
+  const brain = useSwyvorn((s) => s.brain)
+  const connected = useSwyvorn((s) => s.connection === 'connected')
+  if (!brain) return null
+  const tone = connected ? brain.status : 'stale'
+  return (
+    <span className={`topbar__item topbar__brain topbar__brain--${tone}`} title={brainTooltip(brain)}>
+      <span className="topbar__dot" aria-hidden="true" />
+      <span className="visually-hidden">Claude:</span>
+      {BRAIN_LABELS[brain.status]}
+    </span>
   )
 }
 
@@ -77,7 +93,6 @@ function WindowButtons() {
 }
 
 export function TopBar() {
-  const demo = useSwyvorn((s) => s.info?.demo ?? false)
   const inTauri = isTauri()
 
   return (
@@ -85,11 +100,7 @@ export function TopBar() {
       <Brand />
 
       <div className="topbar__status" data-tauri-drag-region>
-        {demo && (
-          <span className="topbar__item topbar__demo" title="Демо-режим: реальные действия не выполняются">
-            демо
-          </span>
-        )}
+        <BrainIndicator />
         <CoreIndicator />
         <MicIndicator />
         <TopClock />

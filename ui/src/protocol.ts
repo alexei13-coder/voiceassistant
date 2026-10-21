@@ -1,6 +1,6 @@
 // Типы протокола ядро ⇄ UI. Зеркало docs/protocol.md — менять только вместе с ним.
 
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 2
 
 export type AssistantState =
   | 'idle'
@@ -116,6 +116,48 @@ export type ConfirmationOutcome =
 
 export type StopSource = 'button' | 'hotkey' | 'voice' | 'tray' | 'emergency'
 
+// ---------- этап 2: «мозг» (docs/brain.md) ----------
+
+export type BrainStatus = 'ready' | 'no_key' | 'invalid_key' | 'offline' | 'limit' | 'demo'
+
+export interface BrainInfo {
+  status: BrainStatus
+  model: string
+  web_search: boolean
+  /** Пояснение по-русски для статусов кроме ready/demo. */
+  message: string | null
+}
+
+export interface UsageTotals {
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+  web_searches: number
+  /** Оценка по таблице цен. */
+  cost_usd: number
+}
+
+export interface MemoryFact {
+  /** snake_case, напр. "address_form". */
+  key: string
+  value: string
+  updated_at: number
+}
+
+/** Коды уведомлений «мозга» (docs/protocol.md §1.5). */
+export type BrainNoticeCode =
+  | 'brain_no_key'
+  | 'brain_invalid_key'
+  | 'brain_offline'
+  | 'brain_limit'
+  | 'brain_credit'
+  | 'brain_overloaded'
+  | 'brain_rate_limited'
+  | 'brain_model_access'
+  | 'brain_refusal'
+  | 'brain_error'
+
 // ---------- ядро → UI ----------
 
 interface Base {
@@ -139,6 +181,10 @@ export interface HelloMessage extends Base {
   history: ChatMessage[]
   actions: ActionEntry[]
   confirmation: ConfirmationRequest | null
+  brain: BrainInfo
+  /** monthly_limit_usd = 0 — без лимита. */
+  usage: { session: UsageTotals; month: UsageTotals; monthly_limit_usd: number }
+  memory: MemoryFact[]
 }
 
 export interface StateMessage extends Base {
@@ -201,6 +247,29 @@ export interface MutedMessage extends Base {
   muted: boolean
 }
 
+export interface BrainStatusMessage extends Base {
+  type: 'brain_status'
+  brain: BrainInfo
+}
+
+export interface UsageMessage extends Base {
+  type: 'usage'
+  session: UsageTotals
+  month: UsageTotals
+  last_turn: UsageTotals
+  monthly_limit_usd: number
+}
+
+export interface MemoryMessage extends Base {
+  type: 'memory'
+  /** Весь список фактов, а не изменение. */
+  facts: MemoryFact[]
+}
+
+export interface SessionResetMessage extends Base {
+  type: 'session_reset'
+}
+
 export interface NoticeMessage extends Base {
   type: 'notice'
   level: 'info' | 'warning' | 'error'
@@ -236,6 +305,10 @@ export type ServerMessage =
   | ConfirmationCountdownMessage
   | ConfirmationResolvedMessage
   | MutedMessage
+  | BrainStatusMessage
+  | UsageMessage
+  | MemoryMessage
+  | SessionResetMessage
   | NoticeMessage
   | StoppedMessage
   | PongMessage
@@ -256,6 +329,9 @@ export type ClientMessage =
       action: 'start' | 'stop' | 'set_state' | 'confirmation' | 'error_flash'
       state?: AssistantState
     }
+  | { type: 'new_session' }
+  | { type: 'memory_delete'; key: string }
+  | { type: 'memory_clear' }
 
 // ---------- Tauri ----------
 

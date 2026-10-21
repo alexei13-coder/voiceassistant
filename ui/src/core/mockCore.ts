@@ -1,31 +1,54 @@
 // Имитация ядра для разработки интерфейса без Python (?mock=1). Подключается только
 // динамическим импортом под import.meta.env.DEV, поэтому в продакшен-сборку не попадает.
-// Повторяет демо-сценарий docs/protocol.md §5 и отвечает на команды UI локально.
+// По умолчанию — сессия этапа 2 (диалог с «Claude», память, расходы); &brain=<статус>
+// показывает другие состояния «мозга», &brain=demo — демо-сценарий этапа 1 (docs/protocol.md §5).
 
 import {
   PROTOCOL_VERSION,
   STATE_LABELS,
   type ActionEntry,
   type AssistantState,
+  type BrainInfo,
+  type BrainStatus,
   type ChatMessage,
   type ClientMessage,
   type ConfirmationOutcome,
   type ConfirmationRequest,
   type Hotkeys,
+  type MemoryFact,
   type ServerMessage,
+  type UsageTotals,
 } from '../protocol'
 import { useSwyvorn } from '../store'
 import { attachLocalCore } from './connection'
+import {
+  OPENING_ANSWER,
+  OPENING_QUESTION,
+  addTotals,
+  brainInfo,
+  canAnswer,
+  confirmationRequest,
+  genericAnswer,
+  rememberEntry,
+  rememberRequest,
+  seedActions,
+  seedHistory,
+  seedMemory,
+  seedUsage,
+  turnUsage,
+} from './mockSeed'
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type Outgoing = DistributiveOmit<ServerMessage, 'ts'>
 type Emit = (msg: ServerMessage) => void
 
 export interface MockOptions {
-  /** Заморозить состояние (для скриншотов): сценарий не запускается. */
+  /** Заморозить состояние (для скриншотов): сценарий и живой ход не запускаются. */
   freezeState: AssistantState | null
   /** Сразу показать диалог подтверждения. */
   confirm: boolean
+  /** Статус «мозга»: ready — диалог с «Claude», demo — сценарий этапа 1. */
+  brain: BrainStatus
 }
 
 const HOTKEYS: Hotkeys = {
@@ -37,22 +60,34 @@ const HOTKEYS: Hotkeys = {
   screen: 'Ctrl+Alt+S',
 }
 
+const BRAIN_STATUSES: readonly BrainStatus[] = ['ready', 'no_key', 'invalid_key', 'offline', 'limit', 'demo']
+
 const AUDIO_HZ = 30
 const RAM_TOTAL_MB = 32_607
 const START_UPTIME_S = 8_142
 const STOPPED_HOLD_MS = 800
 const COUNTDOWN_DELAY_MS = 1500
+/** Живой ход при запуске: когда появляется вопрос и сколько «Claude» думает (видны точки). */
+export const OPENING_DELAY_MS = 800
+export const OPENING_THINK_MS = 3200
+/** Пометка ядра у ответа, оборванного «Стопом» (docs/brain.md). */
+const STOPPED_SUFFIX = ' (остановлено)'
 
 function isAssistantState(value: string | null): value is AssistantState {
   return value !== null && Object.hasOwn(STATE_LABELS, value)
 }
 
+function isBrainStatus(value: string | null): value is BrainStatus {
+  return value !== null && (BRAIN_STATUSES as readonly string[]).includes(value)
+}
+
 export function parseMockOptions(search: string): MockOptions {
   const params = new URLSearchParams(search)
   const state = params.get('state')
+  const brain = params.get('brain')
   const confirm = params.get('confirm') === '1'
   const freezeState = isAssistantState(state) ? state : confirm ? 'awaiting_confirmation' : null
-  return { freezeState, confirm }
+  return { freezeState, confirm, brain: isBrainStatus(brain) ? brain : 'ready' }
 }
 
 function isoWithOffset(ms: number): string {
@@ -98,36 +133,6 @@ export function speechLevel(tSeconds: number, noise: number): number {
   return clamp(0.08 + 0.72 * syllable * contour + 0.12 * (noise - 0.5), 0, 1)
 }
 
-function confirmationRequest(id: string, buttonOnly: boolean): ConfirmationRequest {
-  return {
-    action_id: id,
-    nonce: `nonce-${id}-${Math.random().toString(36).slice(2, 10)}`,
-    title: 'Переместить в корзину 3 файла',
-    spoken_text: 'Нашёл 3 старых скриншота в «Загрузках». Переместить их в корзину?',
-    details: [
-      'C:\\Users\\Пользователь\\Downloads\\Снимок экрана 2026-08-02 101512.png — 1,2 МБ',
-      'C:\\Users\\Пользователь\\Downloads\\Снимок экрана 2026-08-14 184033.png — 860 КБ',
-      'C:\\Users\\Пользователь\\Downloads\\Снимок экрана 2026-09-01 090207.png — 2,4 МБ',
-    ],
-    command:
-      "Get-ChildItem -LiteralPath \"$env:USERPROFILE\\Downloads\" -Filter 'Снимок экрана*.png' | " +
-      'Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | ' +
-      "ForEach-Object { [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($_.FullName, 'OnlyErrorDialogs', 'SendToRecycleBin') }",
-    command_language: 'powershell',
-    code_analysis: [
-      'Затрагивает только 3 файла в папке «Загрузки»',
-      'Файлы попадают в корзину — их можно восстановить',
-      'Нет сетевых обращений и повышения прав',
-    ],
-    model_explanation: 'Команда находит скриншоты старше 30 дней и отправляет их в корзину.',
-    risk: 'confirm',
-    button_only: buttonOnly,
-    timeout_ms: 15_000,
-    expires_at: null,
-    demo: true,
-  }
-}
-
 interface PendingConfirmation {
   request: ConfirmationRequest
   resolve: (outcome: ConfirmationOutcome) => void
@@ -148,6 +153,11 @@ export class MockCore {
   private readonly startedAt = Date.now()
   private cpu = 14
   private ramUsed = 13_900
+  private readonly brain: BrainInfo
+  private memory: MemoryFact[] = []
+  private sessionUsage: UsageTotals
+  private monthUsage: UsageTotals
+  private readonly monthlyLimit: number
   private readonly options: MockOptions
   private readonly emit: Emit
 
@@ -155,27 +165,37 @@ export class MockCore {
     this.emit = emit
     this.options = options
     this.state = options.freezeState ?? 'idle'
-    this.scenarioEnabled = options.freezeState === null
+    this.brain = brainInfo(options.brain)
+    this.scenarioEnabled = options.freezeState === null && this.isDemo()
+    const usage = seedUsage(options.brain)
+    this.sessionUsage = usage.session
+    this.monthUsage = usage.month
+    this.monthlyLimit = usage.limit
   }
 
   start(): void {
     const now = Date.now()
+    const nextId = (prefix: string) => this.nextId(prefix)
+    this.memory = seedMemory(this.brain.status, now)
     this.out({
       type: 'hello',
       protocol: PROTOCOL_VERSION,
-      core_version: '0.1.0-mock',
+      core_version: '0.2.0-mock',
       state: this.state,
-      demo: true,
+      demo: this.isDemo(),
       assistant_name: 'SWYVORN',
       wake_word: 'Свайворн',
       address_form: 'сэр',
-      model: 'claude-opus-5-5',
+      model: this.brain.model,
       hotkeys: HOTKEYS,
       ui: { reduced_motion: false },
       muted: false,
-      history: this.seedHistory(now),
-      actions: this.seedActions(now),
+      history: seedHistory(this.brain.status, now, nextId),
+      actions: seedActions(this.brain.status, now, nextId),
       confirmation: null,
+      brain: this.brain,
+      usage: { session: this.sessionUsage, month: this.monthUsage, monthly_limit_usd: this.monthlyLimit },
+      memory: this.memory,
     })
     // Минута истории сети, чтобы график не был пустым сразу после запуска.
     for (let i = 59; i >= 1; i -= 1) this.emitMetrics(now - i * 1000)
@@ -185,6 +205,9 @@ export class MockCore {
 
     if (this.options.confirm) this.runTurn((signal) => this.confirmationTurn(signal, true), false)
     else if (this.scenarioEnabled) this.startScenario()
+    else if (this.options.freezeState === null && this.brain.status === 'ready') {
+      this.runTurn((signal) => this.openingTurn(signal), false)
+    }
   }
 
   dispose(): void {
@@ -206,7 +229,7 @@ export class MockCore {
         this.out({ type: 'pong' })
         return true
       case 'send_text':
-        this.runTurn((signal) => this.textTurn(msg.text, signal), true)
+        this.runTurn((signal) => this.textTurn(msg.text.trim(), signal), true)
         return true
       case 'confirm':
         this.handleConfirm(msg.action_id, msg.nonce, msg.decision)
@@ -227,12 +250,29 @@ export class MockCore {
         }
         return true
       case 'demo':
+        if (!this.isDemo()) {
+          this.out({ type: 'error', code: 'not_allowed', message: 'Демо-команды доступны только в демо-режиме' })
+          return true
+        }
         this.handleDemo(msg.action, msg.state)
+        return true
+      case 'new_session':
+        this.newSession()
+        return true
+      case 'memory_delete':
+        this.setMemory(this.memory.filter((f) => f.key !== msg.key))
+        return true
+      case 'memory_clear':
+        this.setMemory([])
         return true
     }
   }
 
   // ---------- команды ----------
+
+  private isDemo(): boolean {
+    return this.brain.status === 'demo'
+  }
 
   private handleDemo(action: Extract<ClientMessage, { type: 'demo' }>['action'], state?: AssistantState): void {
     switch (action) {
@@ -290,6 +330,20 @@ export class MockCore {
       this.setState('idle')
       if (this.scenarioEnabled) this.startScenario()
     })
+  }
+
+  /** «Новый диалог»: лента очищается, память и журнал действий остаются. */
+  private newSession(): void {
+    this.finishConfirmation('cancelled', null)
+    this.abortTurn()
+    this.out({ type: 'session_reset' })
+    this.setState('idle')
+    if (this.scenarioEnabled) this.startScenario()
+  }
+
+  private setMemory(facts: MemoryFact[]): void {
+    this.memory = facts
+    this.out({ type: 'memory', facts })
   }
 
   // ---------- ходы ----------
@@ -405,16 +459,62 @@ export class MockCore {
     this.setState('idle')
   }
 
-  private async textTurn(text: string, signal: AbortSignal): Promise<void> {
-    this.chat('user', text.trim())
+  /** Живой ход при запуске сессии этапа 2: вопрос, точки «печатает», потоковый Markdown-ответ. */
+  private async openingTurn(signal: AbortSignal): Promise<void> {
+    await sleep(OPENING_DELAY_MS, signal)
+    this.chat('user', OPENING_QUESTION)
     this.setState('thinking')
-    await sleep(1200, signal)
+    await sleep(OPENING_THINK_MS, signal)
+    await this.answer(OPENING_QUESTION, OPENING_ANSWER, 2600, signal)
+  }
+
+  private async textTurn(text: string, signal: AbortSignal): Promise<void> {
+    this.chat('user', text)
+    if (this.isDemo()) {
+      this.setState('thinking')
+      await sleep(1200, signal)
+      this.setState('speaking')
+      await this.streamAssistant(`Это демонстрационный режим: мозг подключим на этапе 2. Вы написали: „${text}“`, 3000, signal)
+      this.setState('idle')
+      return
+    }
+    if (!canAnswer(this.brain.status)) {
+      // Без ключа, с неверным ключом или после лимита запрос не уходит — ядро объясняет в ленте.
+      this.chat('system', this.brain.message ?? '')
+      if (this.brain.status === 'invalid_key') {
+        this.out({ type: 'notice', level: 'error', text: this.brain.message ?? '', code: 'brain_invalid_key' })
+      }
+      return
+    }
+    this.setState('thinking')
+    await sleep(1400, signal)
+    const value = rememberRequest(text)
+    if (value === null) {
+      await this.answer(text, genericAnswer(text), 3000, signal)
+      return
+    }
+    // Инструмент памяти: запись в журнале, обновлённый список фактов, короткое подтверждение.
+    const entry = this.upsertAction({ ...rememberEntry(this.nextId('a'), Date.now(), 'note', value), status: 'running' })
+    this.setState('executing')
+    await sleep(300, signal)
+    this.setMemory([...this.memory.filter((f) => f.key !== 'note'), { key: 'note', value, updated_at: Date.now() }])
+    this.upsertAction({ ...entry, status: 'ok' })
+    await this.answer(text, 'Запомнил, шеф.', 900, signal)
+  }
+
+  private async answer(prompt: string, reply: string, durationMs: number, signal: AbortSignal): Promise<void> {
     this.setState('speaking')
-    await this.streamAssistant(
-      `Это демонстрационный режим: мозг подключим на этапе 2. Вы написали: „${text.trim()}“`,
-      3000,
-      signal,
-    )
+    await this.streamAssistant(reply, durationMs, signal)
+    const turn = turnUsage(prompt.length, reply.length)
+    this.sessionUsage = addTotals(this.sessionUsage, turn)
+    this.monthUsage = addTotals(this.monthUsage, turn)
+    this.out({
+      type: 'usage',
+      session: this.sessionUsage,
+      month: this.monthUsage,
+      last_turn: turn,
+      monthly_limit_usd: this.monthlyLimit,
+    })
     this.setState('idle')
   }
 
@@ -476,7 +576,10 @@ export class MockCore {
     })
   }
 
-  /** Потоковый ответ: слова идут равномерно за `durationMs`, сообщение всегда завершается. */
+  /**
+   * Потоковый ответ: слова идут равномерно за `durationMs`, сообщение всегда завершается.
+   * Оборванный ответ этапа 2 получает пометку «(остановлено)», как у ядра.
+   */
   private async streamAssistant(text: string, durationMs: number, signal: AbortSignal): Promise<void> {
     const id = this.nextId('m')
     const words = text.match(/\S+\s*/g) ?? [text]
@@ -490,6 +593,9 @@ export class MockCore {
         this.out({ type: 'chat_delta', id, delta: word })
         await sleep(step, signal)
       }
+    } catch (err) {
+      if (signal.aborted && !this.isDemo()) this.out({ type: 'chat_delta', id, delta: STOPPED_SUFFIX })
+      throw err
     } finally {
       this.out({ type: 'chat_done', id })
     }
@@ -539,73 +645,6 @@ export class MockCore {
       if (!this.disposed) fn()
     }, ms)
     this.timers.add(timer)
-  }
-
-  // ---------- стартовые данные ----------
-
-  private seedHistory(now: number): ChatMessage[] {
-    const min = 60_000
-    const msg = (role: ChatMessage['role'], text: string, ago: number): ChatMessage => ({
-      id: this.nextId('m'),
-      role,
-      text,
-      streaming: false,
-      created_at: now - ago,
-    })
-    return [
-      msg('system', 'Демо-режим: голос и «мозг» подключим на следующих этапах. Реальные действия не выполняются.', 9 * min),
-      msg('user', 'Какая сейчас загрузка процессора?', 8 * min),
-      msg('assistant', 'Процессор загружен на 18 %, память — на 43 %. Всё в норме, сэр.', 8 * min - 4000),
-      msg('user', 'Открой папку «Загрузки»', 5 * min),
-      msg('assistant', 'Открываю «Загрузки».', 5 * min - 2500),
-    ]
-  }
-
-  private seedActions(now: number): ActionEntry[] {
-    const min = 60_000
-    const entry = (e: Omit<ActionEntry, 'id' | 'demo'>): ActionEntry => ({ ...e, id: this.nextId('a'), demo: true })
-    return [
-      entry({
-        created_at: now - 8 * min,
-        tool: 'system.metrics',
-        title: 'Показатели системы',
-        risk: 'safe',
-        status: 'ok',
-        decision: 'auto',
-        detail: 'ЦП 18 %, ОЗУ 43 %',
-        duration_ms: 12,
-      }),
-      entry({
-        created_at: now - 5 * min,
-        tool: 'files.open',
-        title: 'Открыть папку «Загрузки»',
-        risk: 'safe',
-        status: 'ok',
-        decision: 'auto',
-        detail: null,
-        duration_ms: 230,
-      }),
-      entry({
-        created_at: now - 3 * min,
-        tool: 'shell.run',
-        title: 'Очистить кэш DNS',
-        risk: 'confirm',
-        status: 'denied',
-        decision: 'denied',
-        detail: 'Отклонено пользователем',
-        duration_ms: null,
-      }),
-      entry({
-        created_at: now - 2 * min,
-        tool: 'registry.write',
-        title: 'Изменить автозапуск в реестре',
-        risk: 'forbidden',
-        status: 'forbidden',
-        decision: 'forbidden',
-        detail: 'Запись в реестр запрещена политикой безопасности',
-        duration_ms: null,
-      }),
-    ]
   }
 }
 

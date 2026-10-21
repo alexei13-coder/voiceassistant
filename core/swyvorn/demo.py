@@ -142,6 +142,15 @@ class DemoController:
         self._autoplay = False
         self._cancel_resume()
 
+    def retire(self) -> None:
+        """Появился ключ API: сценарий больше не нужен, дальше отвечает «мозг».
+
+        Имитация микрофона (voice_toggle и т.п.) остаётся до голоса этапа 3.
+        """
+        self._scenario_enabled = False
+        self.shutdown()
+        self._ks.cancel_turn("cancelled")
+
     # ---------- входы от UI и оболочки ----------
 
     def handle_user_text(self, text: str) -> None:

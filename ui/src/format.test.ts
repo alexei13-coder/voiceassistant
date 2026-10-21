@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   decimalRu,
   formatClock,
+  formatCount,
   formatDuration,
   formatFullDate,
   formatGigabytes,
@@ -11,6 +12,8 @@ import {
   formatRate,
   formatTimeShort,
   formatUptime,
+  formatUsd,
+  formatUsdLimit,
 } from './format'
 
 // Локальное время: конструктор Date с компонентами не зависит от часового пояса машины.
@@ -88,5 +91,30 @@ describe('горячие клавиши', () => {
   it('сокращает Escape', () => {
     expect(formatHotkey('Ctrl+Alt+Escape')).toBe('Ctrl+Alt+Esc')
     expect(formatHotkey('Ctrl + Alt + J')).toBe('Ctrl+Alt+J')
+  })
+})
+
+describe('расходы', () => {
+  it('доллары: до 10 центов — три знака, дальше — два', () => {
+    expect(formatUsd(0)).toBe('$0')
+    expect(formatUsd(0.0004)).toBe('<$0.001')
+    expect(formatUsd(0.034)).toBe('$0.034')
+    expect(formatUsd(0.0216)).toBe('$0.022')
+    expect(formatUsd(0.42)).toBe('$0.42')
+    expect(formatUsd(12.5)).toBe('$12.50')
+    expect(formatUsd(Number.NaN)).toBe('$0')
+  })
+
+  it('лимит без лишних нулей', () => {
+    expect(formatUsdLimit(5)).toBe('$5')
+    expect(formatUsdLimit(7.5)).toBe('$7.50')
+  })
+
+  it('разряды через неразрывный пробел', () => {
+    expect(formatCount(0)).toBe('0')
+    expect(formatCount(999)).toBe('999')
+    expect(formatCount(12_480)).toBe('12\u00a0480')
+    expect(formatCount(1_234_567.4)).toBe('1\u00a0234\u00a0567')
+    expect(formatCount(-3)).toBe('0')
   })
 })

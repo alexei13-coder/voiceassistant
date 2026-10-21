@@ -1,4 +1,4 @@
-"""Модели сообщений протокола версии 1 (docs/protocol.md) и их (де)сериализация.
+"""Модели сообщений протокола версии 2 (docs/protocol.md) и их (де)сериализация.
 
 Исходящие модели запрещают лишние поля: в сообщение физически нельзя положить то, чего нет
 в протоколе (например, секрет). Входящие сообщения UI проверяются строго.
@@ -23,10 +23,15 @@ from pydantic import (
 
 from .state import AssistantState
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 
 MAX_TOKEN_LENGTH = 256
 MAX_TEXT_LENGTH = 4000
+
+# Факты долговременной памяти (docs/brain.md): ключ — snake_case латиницей.
+MEMORY_KEY_PATTERN = r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$"
+MEMORY_KEY_MAX_LENGTH = 40
+MEMORY_VALUE_MAX_LENGTH = 200
 
 Risk = Literal["safe", "confirm", "forbidden"]
 ChatRole = Literal["user", "assistant", "system"]
@@ -59,6 +64,7 @@ StopSource = Literal["button", "hotkey", "voice", "tray", "emergency"]
 NoticeLevel = Literal["info", "warning", "error"]
 AudioSource = Literal["mic", "tts"]
 ErrorCode = Literal["unknown_type", "bad_message", "not_allowed", "stale_confirmation", "internal"]
+BrainStatus = Literal["ready", "no_key", "invalid_key", "offline", "limit", "demo"]
 
 
 def now_ms() -> int:
@@ -143,12 +149,40 @@ class UiFlags(_Out):
     reduced_motion: bool
 
 
+class BrainInfo(_Out):
+    status: BrainStatus
+    model: str
+    web_search: bool
+    message: str | None = None
+
+
+class UsageTotals(_Out):
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    web_searches: int = 0
+    cost_usd: float = 0.0
+
+
+class MemoryFact(_Out):
+    key: str
+    value: str
+    updated_at: int
+
+
+class HelloUsage(_Out):
+    session: UsageTotals
+    month: UsageTotals
+    monthly_limit_usd: float
+
+
 # ---------- ядро → UI (§1.5) ----------
 
 
 class HelloMessage(_Out):
     type: Literal["hello"] = "hello"
-    protocol: Literal[1] = PROTOCOL_VERSION
+    protocol: Literal[2] = PROTOCOL_VERSION
     core_version: str
     state: AssistantState
     demo: bool
@@ -162,6 +196,9 @@ class HelloMessage(_Out):
     history: list[ChatMessage]
     actions: list[ActionEntry]
     confirmation: ConfirmationRequest | None
+    brain: BrainInfo
+    usage: HelloUsage
+    memory: list[MemoryFact]
 
 
 class StateMessage(_Out):
@@ -236,6 +273,28 @@ class StoppedMessage(_Out):
     source: StopSource
 
 
+class BrainStatusMessage(_Out):
+    type: Literal["brain_status"] = "brain_status"
+    brain: BrainInfo
+
+
+class UsageMessage(_Out):
+    type: Literal["usage"] = "usage"
+    session: UsageTotals
+    month: UsageTotals
+    last_turn: UsageTotals
+    monthly_limit_usd: float
+
+
+class MemoryMessage(_Out):
+    type: Literal["memory"] = "memory"
+    facts: list[MemoryFact]
+
+
+class SessionResetMessage(_Out):
+    type: Literal["session_reset"] = "session_reset"
+
+
 class PongMessage(_Out):
     type: Literal["pong"] = "pong"
 
@@ -261,6 +320,10 @@ type ServerMessage = (
     | MutedMessage
     | NoticeMessage
     | StoppedMessage
+    | BrainStatusMessage
+    | UsageMessage
+    | MemoryMessage
+    | SessionResetMessage
     | PongMessage
     | ErrorMessage
 )
@@ -344,6 +407,24 @@ class DemoMessage(_In):
         return self
 
 
+class NewSessionMessage(_In):
+    type: Literal["new_session"]
+
+
+MemoryKey = Annotated[
+    str, StringConstraints(min_length=1, max_length=MEMORY_KEY_MAX_LENGTH, pattern=MEMORY_KEY_PATTERN)
+]
+
+
+class MemoryDeleteMessage(_In):
+    type: Literal["memory_delete"]
+    key: MemoryKey
+
+
+class MemoryClearMessage(_In):
+    type: Literal["memory_clear"]
+
+
 type ClientMessage = (
     AuthMessage
     | SendTextMessage
@@ -353,12 +434,29 @@ type ClientMessage = (
     | MuteMessage
     | PingMessage
     | DemoMessage
+    | NewSessionMessage
+    | MemoryDeleteMessage
+    | MemoryClearMessage
 )
 
 _CLIENT_ADAPTER: TypeAdapter[ClientMessage] = TypeAdapter(
     Annotated[ClientMessage.__value__, Field(discriminator="type")]
 )
-CLIENT_MESSAGE_TYPES = frozenset({"auth", "send_text", "confirm", "stop", "mic", "mute", "ping", "demo"})
+CLIENT_MESSAGE_TYPES = frozenset(
+    {
+        "auth",
+        "send_text",
+        "confirm",
+        "stop",
+        "mic",
+        "mute",
+        "ping",
+        "demo",
+        "new_session",
+        "memory_delete",
+        "memory_clear",
+    }
+)
 
 _ERROR_TEXTS = {
     "missing": "обязательное поле отсутствует",
@@ -368,6 +466,7 @@ _ERROR_TEXTS = {
     "literal_error": "недопустимое значение",
     "enum": "недопустимое значение",
     "value_error": "недопустимое сочетание полей",
+    "string_pattern_mismatch": "недопустимый формат",
 }
 
 
@@ -460,7 +559,7 @@ def parse_shell_message(line: str) -> ShellMessage:
 class ReadyMessage(_Out):
     type: Literal["ready"] = "ready"
     port: int
-    protocol: Literal[1] = PROTOCOL_VERSION
+    protocol: Literal[2] = PROTOCOL_VERSION
     hotkeys: Hotkeys
 
 

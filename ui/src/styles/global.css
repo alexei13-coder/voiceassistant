@@ -147,8 +147,7 @@ button:disabled {
   flex: none;
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   margin: 0 0 14px;
 }
 
@@ -163,10 +162,79 @@ button:disabled {
 }
 
 .section__aside {
+  /* счётчик — рядом с подписью, кнопки заголовка (.section__tool) — у правого края */
+  margin-right: auto;
   font-family: var(--font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--text-faint);
+}
+
+/* Сворачиваемая секция: подпись — кнопка со стрелкой, выглядит как обычная подпись */
+.section__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  transition: color var(--dur-fast) var(--ease);
+}
+
+.section__toggle:hover {
+  color: var(--text-dim);
+}
+
+.section__chevron {
+  width: 12px;
+  height: 12px;
+  transform: rotate(-90deg);
+  transition: transform var(--dur) var(--ease);
+}
+
+.section__toggle[aria-expanded='true'] .section__chevron {
+  transform: none;
+}
+
+.section__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Тихая текстовая кнопка в заголовке секции («новый диалог») */
+.section__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  margin: -3px -6px -3px auto;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  transition:
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+
+.section__tool:hover {
+  background: var(--panel-hover);
+  color: var(--text-dim);
+}
+
+.section__tool .icon {
+  width: 12px;
+  height: 12px;
 }
 
 /* Края прокручиваемой ленты мягко гаснут — но только там, где за краем есть скрытое содержимое.

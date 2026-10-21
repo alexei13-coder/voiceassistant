@@ -78,6 +78,15 @@ class Session:
         self._messages[message_id] = message.model_copy(update={"text": message.text + delta})
         self._bus.publish(ChatDeltaMessage(id=message_id, delta=delta))
 
+    def set_message_text(self, message_id: str, text: str) -> None:
+        """Заменить текст целиком (отказ модели, повтор запроса): chat_message с тем же id."""
+        message = self._messages.get(message_id)
+        if message is None or message.text == text:
+            return
+        updated = message.model_copy(update={"text": text})
+        self._messages[message_id] = updated
+        self._bus.publish(ChatMessageMessage(message=updated))
+
     def finish_message(self, message_id: str) -> None:
         """Повторный вызов безопасен: им закрывают сообщение и при отмене хода."""
         message = self._messages.get(message_id)
@@ -88,6 +97,10 @@ class Session:
 
     def history(self) -> list[ChatMessage]:
         return list(self._messages.values())
+
+    def clear_history(self) -> None:
+        """Новый диалог: лента чата пустеет, журнал действий остаётся."""
+        self._messages.clear()
 
     # ---------- журнал действий ----------
 

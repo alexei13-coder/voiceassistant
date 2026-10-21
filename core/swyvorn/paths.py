@@ -71,6 +71,14 @@ class DataPaths:
     def core_log(self) -> Path:
         return self.logs_dir / "core.log"
 
+    @property
+    def memory_file(self) -> Path:
+        return self.root / "memory.json"
+
+    @property
+    def usage_file(self) -> Path:
+        return self.root / "usage.json"
+
     def ensure_logs_dir(self) -> Path:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         return self.logs_dir

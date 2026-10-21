@@ -6,6 +6,7 @@ import { BottomBar } from './components/BottomBar'
 import { CenterStage } from './components/CenterStage'
 import { ChatPanel } from './components/ChatPanel'
 import { ConnectionBanner } from './components/ConnectionBanner'
+import { MemoryPanel } from './components/MemoryPanel'
 import { Notices } from './components/Notices'
 import { SystemPanel } from './components/SystemPanel'
 import { TopBar } from './components/TopBar'
@@ -22,6 +23,7 @@ export function App() {
         <CenterStage />
         <div className="hud__side">
           <ActionLog />
+          <MemoryPanel />
           <SystemPanel />
         </div>
       </main>

@@ -23,6 +23,7 @@ const PATHS = {
   check: <path d="M3.5 8.5l3 2.75 6-6.5" />,
   spinner: <path d="M8 1.75a6.25 6.25 0 1 1-6.25 6.25" />,
   chevronDown: <path d="M4.5 6.25 8 9.75l3.5-3.5" />,
+  plus: <path d="M8 3.5v9M3.5 8h9" />,
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof PATHS

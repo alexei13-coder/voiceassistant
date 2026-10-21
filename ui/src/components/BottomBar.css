@@ -11,6 +11,7 @@
 }
 
 .bottombar__center {
+  position: relative;
   grid-column: 2;
   display: flex;
   align-items: center;
@@ -30,6 +31,45 @@
   display: flex;
   justify-content: flex-end;
   min-width: 0;
+}
+
+/* ---------- строка над полем: как добавить ключ API ---------- */
+
+.cmd-hint {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  /* не шире поля команды: по бокам от него — кнопки шириной 36 px */
+  max-width: min(640px, calc(100% - 88px));
+  margin: 0;
+  overflow: hidden;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.cmd-hint .mono {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.cmd-hint__dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+/* Тот же цвет, что у индикатора Claude в верхней панели */
+.cmd-hint__dot--invalid {
+  background: var(--red);
 }
 
 /* ---------- поле команды ---------- */

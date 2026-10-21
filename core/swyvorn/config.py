@@ -11,7 +11,7 @@ import logging
 import os
 import secrets
 import tomllib
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -44,8 +44,11 @@ wake_word = "Свайворн"        # как произносится: сло�
 address_form = "сэр"          # как обращаться к пользователю; спросим при первом запуске (этап 2)
 
 [llm]
-model = "claude-opus-5-5"
-effort = "low"                # low | medium | high
+model = "claude-opus-5-5"     # claude-opus-5-5 | claude-sonnet-5-5 | claude-haiku-5-5
+effort = "low"                # low | medium | high — глубина рассуждений (выше — дольше и дороже)
+max_tokens = 4096             # верхняя граница длины ответа
+web_search = true             # поиск в интернете силами Claude (≈ $10 за 1000 поисков)
+monthly_limit_usd = 0         # лимит расходов за месяц, $; 0 — без лимита
 
 [hotkeys]
 activate = "Ctrl+Alt+J"       # нажатие — вызов, удержание — говорить, пока держите
@@ -59,7 +62,7 @@ screen = "Ctrl+Alt+S"         # посмотреть на экран
 reduced_motion = false        # меньше анимаций для слабых ПК
 
 [demo]
-enabled = true                # этап 1: демонстрационный сценарий вместо «мозга»
+enabled = true                # демо-сценарий, пока нет ключа API (с ключом работает Claude)
 
 [logging]
 level = "INFO"                # DEBUG | INFO | WARNING | ERROR
@@ -100,6 +103,12 @@ class LlmSettings(_Section):
         StringConstraints(strip_whitespace=True, min_length=1, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$"),
     ] = "claude-opus-5-5"
     effort: Literal["low", "medium", "high"] = "low"
+    # Мышление на Opus 5.5 не отключается и тратит те же токены, поэтому меньше 1024 не даём:
+    # иначе ответ обрывался бы, не начавшись. Сверху — максимум вывода моделей.
+    max_tokens: Annotated[int, Field(ge=1024, le=128_000)] = 4096
+    web_search: bool = True
+    # 0 — без лимита. Целое в TOML тоже принимается (strict-режим pydantic разрешает int → float).
+    monthly_limit_usd: Annotated[float, Field(ge=0, le=100_000)] = 0.0
 
 
 class HotkeySettings(_Section):
@@ -278,6 +287,22 @@ def scrub_secret_environment(environ: MutableMapping[str, str] = os.environ) -> 
 def load_secrets(env: Mapping[str, str]) -> Secrets:
     key = env.get(API_KEY_ENV, "").strip()
     return Secrets(anthropic_api_key=SecretStr(key) if key else None)
+
+
+def make_key_loader(
+    paths: DataPaths, *, dev: bool, environ: Mapping[str, str]
+) -> Callable[[], SecretStr | None]:
+    """Повторное чтение ключа API (docs/brain.md: no_key и invalid_key перечитывают .env).
+
+    Порядок тот же, что при запуске: окружение процесса важнее файлов. Из окружения запоминается
+    только сам ключ — к этому моменту os.environ от него уже очищен (scrub_secret_environment).
+    """
+    process = {API_KEY_ENV: environ[API_KEY_ENV]} if environ.get(API_KEY_ENV, "").strip() else {}
+
+    def load() -> SecretStr | None:
+        return load_secrets(load_environment(env_files(paths, dev=dev), process)).anthropic_api_key
+
+    return load
 
 
 class TokenError(Exception):

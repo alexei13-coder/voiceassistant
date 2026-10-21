@@ -195,6 +195,10 @@ def set_level(level: str) -> None:
     logging.getLogger().setLevel(level)
     # websockets на INFO сообщает о каждом отклонённом рукопожатии — это шум, не события.
     logging.getLogger("websockets").setLevel(logging.DEBUG if level == "DEBUG" else logging.WARNING)
+    # SDK Anthropic на DEBUG пишет параметры запроса целиком — с текстами реплик, которым
+    # в журнале не место. Выше INFO (повторы запросов) его не пускаем даже при --log-level DEBUG.
+    for name in ("anthropic", "httpx2", "httpcore2"):
+        logging.getLogger(name).setLevel(logging.INFO if name == "anthropic" else logging.WARNING)
 
 
 def _install_excepthooks() -> None:

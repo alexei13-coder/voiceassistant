@@ -1,4 +1,5 @@
-/* Лента диалога: иерархия только цветом текста и отступами, без пузырей и полос. */
+/* Лента диалога: иерархия только цветом текста и отступами, без пузырей и полос.
+   Разметка ответов ассистента — markdown/Markdown.css. */
 
 .chat {
   position: relative;
@@ -73,22 +74,114 @@
   color: var(--text-faint);
 }
 
-.msg__caret {
-  display: inline-block;
-  width: 2px;
-  height: 1.05em;
-  margin-left: 3px;
-  vertical-align: -0.16em;
-  border-radius: 1px;
-  background: var(--text-dim);
-  animation: blink 1s steps(1) infinite;
-}
-
 .chat__empty {
   margin: 0;
   font-size: 13px;
   line-height: 1.55;
   color: var(--text-faint);
+}
+
+/* ---------- ассистент печатает ---------- */
+
+.typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+}
+
+.typing i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  /* без анимации («меньше движения») точки просто стоят */
+  opacity: 0.55;
+  animation: typing-dot 1.2s var(--ease) infinite;
+}
+
+.typing i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.typing i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: none;
+  }
+  30% {
+    opacity: 0.9;
+    transform: translateY(-2px);
+  }
+}
+
+/* ---------- как добавить ключ API ---------- */
+
+.chat__key {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 34em;
+  color: var(--text-dim);
+}
+
+.chat__key p {
+  margin: 0;
+}
+
+.chat__key p + p {
+  color: var(--text-faint);
+}
+
+.chat__key .mono {
+  font-size: 12px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/* Путь к .env копируется по клику — пунктир подсказывает, что он «живой» */
+.chat__path {
+  cursor: copy;
+  text-decoration: underline dotted;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease);
+}
+
+.chat__path:hover {
+  text-decoration-color: var(--text-dim);
+}
+
+/* ---------- «Ссылка скопирована» в заголовке секции ---------- */
+
+.chat__flash {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  /* как у подписи секции: появление подсказки не сдвигает ленту */
+  line-height: 16px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  animation: fade-in var(--dur) var(--ease) both;
+}
+
+.chat__flash .icon {
+  width: 12px;
+  height: 12px;
+  align-self: center;
+  color: var(--green);
+}
+
+.chat__flash--warn .icon {
+  color: var(--amber);
 }
 
 /* ---------- плашка «новые сообщения» ---------- */

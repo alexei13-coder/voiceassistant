@@ -18,8 +18,10 @@ from swyvorn.bus import EventBus
 from swyvorn.config import Settings
 from swyvorn.logging_setup import REDACTED, SecretRedactor
 from swyvorn.protocol import (
+    BrainInfo,
     ClientMessage,
     HelloMessage,
+    HelloUsage,
     Hotkeys,
     MetricsMessage,
     NoticeMessage,
@@ -28,6 +30,7 @@ from swyvorn.protocol import (
     ProtocolError,
     ServerMessage,
     UiFlags,
+    UsageTotals,
 )
 from swyvorn.state import AssistantState
 
@@ -50,6 +53,9 @@ def make_hello() -> HelloMessage:
         history=[],
         actions=[],
         confirmation=None,
+        brain=BrainInfo(status="demo", model=settings.llm.model, web_search=True),
+        usage=HelloUsage(session=UsageTotals(), month=UsageTotals(), monthly_limit_usd=0),
+        memory=[],
     )
 
 

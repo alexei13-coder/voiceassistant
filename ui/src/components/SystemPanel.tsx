@@ -1,9 +1,11 @@
-// Секция «СИСТЕМА»: компактные показатели — ЦП и ОЗУ с тонкой полосой, сеть, время работы ядра, модель.
+// Секция «СИСТЕМА»: компактные показатели — ЦП и ОЗУ с тонкой полосой, сеть, время работы ядра, модель
+// и расход на API.
 // Пока метрик нет (null) — тихие прочерки вместо чисел.
 
 import { formatMemory, formatPercent, formatRate, formatUptime } from '../format'
 import { useSwyvorn } from '../store'
 import { Section } from './Section'
+import { UsageRow } from './UsageRow'
 import './SystemPanel.css'
 
 const DASH = '—'
@@ -84,6 +86,8 @@ export function SystemPanel() {
             </span>
           </div>
         )}
+
+        <UsageRow />
       </div>
     </Section>
   )

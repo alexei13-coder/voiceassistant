@@ -1,0 +1,113 @@
+/* Память: компактный список «ключ — значение» между журналом действий и системой.
+   Своё место секция не уступает (журнал прокручивается), но и не растёт больше трети колонки. */
+
+.mem {
+  flex: none;
+  max-height: 32%;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+}
+
+.section--collapsed > .section__head {
+  margin-bottom: 0;
+}
+
+.mem__list {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 0 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-color: transparent transparent;
+}
+
+.mem__list:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px;
+  align-items: start;
+  column-gap: 8px;
+}
+
+.fact__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--text);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.fact__key {
+  color: var(--text-dim);
+}
+
+.fact__sep {
+  color: var(--text-faint);
+}
+
+/* Крестик появляется у строки под курсором или в фокусе — список остаётся тихим */
+.fact__delete {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  opacity: 0;
+  transition:
+    opacity var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+
+.fact:hover .fact__delete,
+.fact__delete:focus-visible {
+  opacity: 1;
+  color: var(--text-dim);
+}
+
+.fact__delete:hover {
+  background: var(--red-wash);
+  color: var(--red);
+}
+
+.fact__delete .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.mem__clear--armed,
+.mem__clear--armed:hover {
+  background: var(--red-wash);
+  color: var(--red);
+}
+
+.mem__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+@media (max-height: 780px) {
+  .mem {
+    margin-top: 14px;
+    padding-top: 14px;
+  }
+
+  .mem__list {
+    gap: 2px;
+  }
+}

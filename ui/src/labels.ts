@@ -1,6 +1,15 @@
 // Русские подписи для значений протокола и подсказки под ядром.
 
-import type { ActionDecision, ActionStatus, AssistantState, ChatMessage, CoreProcessStatus, Risk } from './protocol'
+import type {
+  ActionDecision,
+  ActionStatus,
+  AssistantState,
+  BrainInfo,
+  BrainStatus,
+  ChatMessage,
+  CoreProcessStatus,
+  Risk,
+} from './protocol'
 import type { ConnectionStatus } from './store'
 
 export const DEFAULT_ASSISTANT_NAME = 'SWYVORN'
@@ -46,6 +55,53 @@ export const CONNECTION_LABELS: Record<ConnectionStatus, string> = {
   connected: 'в сети',
   disconnected: 'нет связи',
   unauthorized: 'нет доступа',
+}
+
+/** Короткое слово о Claude для верхней панели. */
+export const BRAIN_LABELS: Record<BrainStatus, string> = {
+  ready: 'claude',
+  no_key: 'нет ключа',
+  invalid_key: 'ключ не подошёл',
+  offline: 'нет связи',
+  limit: 'лимит',
+  demo: 'демо',
+}
+
+/** Пояснение, если ядро не прислало своё (для ready и demo оно всегда null). */
+const BRAIN_FALLBACK_MESSAGES: Record<Exclude<BrainStatus, 'ready'>, string> = {
+  no_key: 'Ключ API не задан',
+  invalid_key: 'Ключ API не подошёл',
+  offline: 'Нет связи с Claude',
+  limit: 'Достигнут месячный лимит расходов',
+  demo: 'Демо-режим: Claude не подключён, реальные действия не выполняются',
+}
+
+/** Подсказка к индикатору Claude: что с ним и какая модель. */
+export function brainTooltip(brain: BrainInfo): string {
+  const model = `модель ${brain.model}${brain.web_search ? ' · поиск в интернете' : ''}`
+  if (brain.status === 'ready') return `Claude на связи · ${model}`
+  return `${brain.message?.trim() || BRAIN_FALLBACK_MESSAGES[brain.status]}\n${model}`
+}
+
+/** Нужен ли пользователю совет, как добавить ключ API. */
+export function needsApiKey(status: BrainStatus | undefined): boolean {
+  return status === 'no_key' || status === 'invalid_key'
+}
+
+/** Где лежит ключ (docs/configuration.md) и какую строку туда вписать. */
+export const API_KEY_FILE = '%APPDATA%\\Swyvorn\\.env'
+export const API_KEY_LINE = 'ANTHROPIC_API_KEY=…'
+
+/** Понятные подписи особых ключей долговременной памяти (docs/brain.md). */
+const MEMORY_KEY_LABELS: Record<string, string> = {
+  address_form: 'обращение',
+  user_name: 'имя',
+  city: 'город',
+}
+
+/** Подпись факта памяти: особые ключи — по-русски, остальные — без подчёркиваний. */
+export function memoryKeyLabel(key: string): string {
+  return Object.hasOwn(MEMORY_KEY_LABELS, key) ? MEMORY_KEY_LABELS[key] : key.replaceAll('_', ' ')
 }
 
 /** Слово состояния под ядром — строчными, спокойно. */

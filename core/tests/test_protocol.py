@@ -7,14 +7,20 @@ import pytest
 from swyvorn.config import Settings
 from swyvorn.protocol import (
     AuthMessage,
+    BrainInfo,
     ConfirmMessage,
     DemoMessage,
     HelloMessage,
+    HelloUsage,
     HotkeyErrorMessage,
     HotkeyMessage,
     Hotkeys,
+    MemoryClearMessage,
+    MemoryDeleteMessage,
+    MemoryFact,
     MicMessage,
     MuteMessage,
+    NewSessionMessage,
     PingMessage,
     ProtocolError,
     ReadyMessage,
@@ -24,6 +30,7 @@ from swyvorn.protocol import (
     StopMessage,
     TrayMessage,
     UiFlags,
+    UsageTotals,
     encode_server_message,
     encode_shell_message,
     parse_client_message,
@@ -54,6 +61,9 @@ def protocol_error(raw: str | bytes) -> ProtocolError:
         ({"type": "ping"}, PingMessage),
         ({"type": "demo", "action": "start"}, DemoMessage),
         ({"type": "demo", "action": "set_state", "state": "speaking"}, DemoMessage),
+        ({"type": "new_session"}, NewSessionMessage),
+        ({"type": "memory_delete", "key": "address_form"}, MemoryDeleteMessage),
+        ({"type": "memory_clear"}, MemoryClearMessage),
     ],
 )
 def test_valid_client_messages(message: dict[str, object], model: type) -> None:
@@ -108,6 +118,14 @@ def test_extra_fields_rejected(message: dict[str, object]) -> None:
         {"type": "demo", "action": "set_state"},
         {"type": "demo", "action": "set_state", "state": "dancing"},
         {"type": "demo", "action": "explode"},
+        {"type": "new_session", "keep_memory": True},
+        {"type": "memory_delete"},
+        {"type": "memory_delete", "key": ""},
+        {"type": "memory_delete", "key": "Address Form"},
+        {"type": "memory_delete", "key": "обращение"},
+        {"type": "memory_delete", "key": "k" * 41},
+        {"type": "memory_delete", "key": 5},
+        {"type": "memory_clear", "key": "x"},
     ],
 )
 def test_invalid_fields_rejected(message: dict[str, object]) -> None:
@@ -165,13 +183,23 @@ def test_hello_has_every_contract_field() -> None:
         history=[],
         actions=[],
         confirmation=None,
+        brain=BrainInfo(status="no_key", model=settings.llm.model, web_search=True, message="нет ключа"),
+        usage=HelloUsage(session=UsageTotals(), month=UsageTotals(cost_usd=1.5), monthly_limit_usd=10),
+        memory=[MemoryFact(key="address_form", value="шеф", updated_at=1)],
     )
     data = json.loads(encode_server_message(hello))
     assert set(data) == {
         "type", "ts", "protocol", "core_version", "state", "demo", "assistant_name", "wake_word",
         "address_form", "model", "hotkeys", "ui", "muted", "history", "actions", "confirmation",
+        "brain", "usage", "memory",
     }  # fmt: skip
-    assert data["protocol"] == 1
+    assert data["protocol"] == 2
+    assert data["brain"] == {"status": "no_key", "model": "claude-opus-5-5", "web_search": True, "message": "нет ключа"}
+    assert set(data["usage"]) == {"session", "month", "monthly_limit_usd"}
+    assert set(data["usage"]["month"]) == {
+        "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens", "web_searches", "cost_usd",
+    }  # fmt: skip
+    assert data["memory"] == [{"key": "address_form", "value": "шеф", "updated_at": 1}]
     assert set(data["hotkeys"]) == {"activate", "stop", "stop_fallback", "mute", "repeat", "screen"}
 
 
@@ -211,6 +239,6 @@ def test_ready_line() -> None:
     data = json.loads(line)
     assert data["type"] == "ready"
     assert data["port"] == 1234
-    assert data["protocol"] == 1
+    assert data["protocol"] == 2
     assert data["hotkeys"]["activate"] == "Ctrl+Alt+J"
     assert "ts" not in data

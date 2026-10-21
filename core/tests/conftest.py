@@ -1,4 +1,5 @@
-"""Общие помощники тестов: запись событий шины, быстрые тайминги демо, запущенное ядро."""
+"""Общие помощники тестов: запись событий шины, быстрые тайминги, «мозг» с поддельным API,
+запущенное ядро."""
 
 from __future__ import annotations
 
@@ -7,22 +8,32 @@ import contextlib
 import io
 import json
 import random
+import tempfile
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import pytest
+from fakes.fake_anthropic import FakeAnthropic
+from pydantic import SecretStr
 from websockets.asyncio.client import ClientConnection, connect
 
 import swyvorn.app
 from swyvorn.api.control import StdoutChannel
 from swyvorn.app import Application
+from swyvorn.brain.client import ClientFactory, KeyStore, make_client
+from swyvorn.brain.memory import MemoryStore
+from swyvorn.brain.service import Brain, BrainTimings
+from swyvorn.brain.usage import UsageTracker
 from swyvorn.bus import EventBus
 from swyvorn.cli import CliOptions
-from swyvorn.config import SECRET_ENV_NAMES, Settings, settings_from_mapping
+from swyvorn.config import SECRET_ENV_NAMES, LlmSettings, Settings, settings_from_mapping
 from swyvorn.confirmation import ConfirmationGate
 from swyvorn.demo import DemoController, DemoTimings
 from swyvorn.killswitch import KillSwitch
+from swyvorn.paths import DataPaths
 from swyvorn.platform.elevation import check_elevation
 from swyvorn.protocol import ServerMessage, StateMessage
 from swyvorn.session import Session
@@ -54,6 +65,21 @@ TAURI_ORIGIN = "http://tauri.localhost"
 
 # Всё в 100 раз быстрее; подтверждение — 3 с реального времени, чтобы тест успел ответить.
 FAST = DemoTimings(time_scale=0.01, confirmation_timeout=300.0)
+FAST_BRAIN = BrainTimings(executing_min=0.0, error_flash=0.01)
+
+API_KEY = "sk-ant-test-fake-key-123"  # совпадает с ключом из инструкции ручного прогона
+FAKE_BASE_URL = "http://fake-anthropic.test"
+# Вторник, 21 октября 2026, 14:05 по Москве — для блока контекста.
+NOW = datetime(2026, 10, 21, 14, 5, tzinfo=timezone(timedelta(hours=3), "MSK"))
+
+
+def fake_client_factory(fake: FakeAnthropic) -> ClientFactory:
+    """Настоящий SDK поверх MockTransport; без повторов, чтобы ошибки приходили сразу."""
+
+    def factory(key: SecretStr) -> Any:
+        return make_client(key, base_url=FAKE_BASE_URL, http_client=fake.http_client(), max_retries=0)
+
+    return factory
 
 
 class Recorder:
@@ -144,6 +170,83 @@ async def core() -> AsyncIterator[Core]:
     await c.ks.shutdown()
 
 
+# ---------- «мозг» с поддельным API ----------
+
+
+@dataclass
+class BrainCore:
+    core: Core
+    brain: Brain
+    fake: FakeAnthropic
+    memory: MemoryStore
+    usage: UsageTracker
+    keys: KeyStore
+    paths: DataPaths
+
+    @property
+    def rec(self) -> Recorder:
+        return self.core.rec
+
+    async def say(self, text: str, *, within: float = 3.0) -> list[Any]:
+        """Отправить реплику и дождаться конца хода; возвращает события этого хода."""
+        mark = self.rec.mark()
+        task = self.brain.send_text(text)
+        done, _ = await asyncio.wait([task], timeout=within)
+        assert done, "ход не закончился вовремя"
+        return self.rec.events[mark:]
+
+
+def build_brain(
+    tmp_path: Path,
+    *,
+    key: str | None = API_KEY,
+    llm: dict[str, Any] | None = None,
+    fake: FakeAnthropic | None = None,
+    key_loader: Callable[[], SecretStr | None] | None = None,
+    limit_loader: Callable[[], float] | None = None,
+    clock: Callable[[], datetime] = lambda: NOW,
+) -> BrainCore:
+    c = build_core()
+    fake = fake or FakeAnthropic()
+    settings = settings_from_mapping({"llm": llm or {}})
+    paths = DataPaths(tmp_path)
+    memory = MemoryStore(paths.memory_file)
+    usage = UsageTracker(paths.usage_file, monthly_limit_usd=settings.llm.monthly_limit_usd, clock=clock)
+    secret = SecretStr(key) if key else None
+    keys = KeyStore(secret, key_loader or (lambda: secret))
+    brain = Brain(
+        llm=settings.llm,
+        assistant=c.settings.assistant,
+        session=c.session,
+        state_machine=c.sm,
+        killswitch=c.ks,
+        bus=c.bus,
+        memory=memory,
+        usage=usage,
+        keys=keys,
+        client_factory=fake_client_factory(fake),
+        env_file=paths.env_file,
+        limit_loader=limit_loader or (lambda: settings.llm.monthly_limit_usd),
+        demo=False,
+        timings=FAST_BRAIN,
+        clock=clock,
+        rng=random.Random(7),  # noqa: S311 — воспроизводимая огибающая, не криптография
+    )
+    return BrainCore(c, brain, fake, memory, usage, keys, paths)
+
+
+@pytest.fixture
+async def bc(tmp_path: Path) -> AsyncIterator[BrainCore]:
+    harness = build_brain(tmp_path)
+    yield harness
+    await harness.core.ks.shutdown()
+    await harness.brain.aclose()
+
+
+def llm_settings(**values: Any) -> LlmSettings:
+    return settings_from_mapping({"llm": values}).llm
+
+
 # ---------- запущенное приложение с настоящим WebSocket ----------
 
 
@@ -165,36 +268,47 @@ class RunningApp:
 @contextlib.asynccontextmanager
 async def running_app(
     *,
-    demo: bool = False,
+    demo: bool | None = False,
     dev: bool = True,
     settings: Settings | None = None,
     stdin: io.BytesIO | None = None,
+    api_key: str | None = None,
+    fake: FakeAnthropic | None = None,
+    key_loader: Callable[[], SecretStr | None] | None = None,
+    data_dir: Path | None = None,
 ) -> AsyncIterator[RunningApp]:
+    """demo: True — --demo, False — --no-demo, None — по настройке [demo] enabled."""
     stdout = io.BytesIO()
     ready = asyncio.get_running_loop().create_future()
-    app = Application(
-        options=CliOptions(dev=dev, port=0, demo=demo, no_stdin=stdin is None),
-        settings=settings or Settings(),
-        token=TOKEN,
-        stdout=StdoutChannel(stdout),
-        stdin=stdin.read if stdin is not None else None,
-        demo_timings=FAST,
-        return_to_idle_after=0.02,
-        metrics_interval=0.05,
-        handle_signals=False,
-        on_ready=lambda port: ready.set_result(port),
-    )
-    rec = Recorder(app.bus)
-    task = asyncio.create_task(app.run())
-    await asyncio.wait([ready, task], timeout=5, return_when=asyncio.FIRST_COMPLETED)
-    if not ready.done():
-        raise RuntimeError(f"ядро не стартовало: {task.result() if task.done() else 'таймаут'}")
-    port = ready.result()
-    try:
-        yield RunningApp(app, port, stdout, rec, task)
-    finally:
-        app.request_shutdown("конец теста")
-        await asyncio.wait_for(task, 5)
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as scratch:
+        app = Application(
+            options=CliOptions(dev=dev, port=0, demo=demo, no_stdin=stdin is None),
+            settings=settings or Settings(),
+            token=TOKEN,
+            stdout=StdoutChannel(stdout),
+            paths=DataPaths(data_dir or Path(scratch)),
+            api_key=SecretStr(api_key) if api_key else None,
+            key_loader=key_loader,
+            client_factory=fake_client_factory(fake or FakeAnthropic()),
+            stdin=stdin.read if stdin is not None else None,
+            demo_timings=FAST,
+            brain_timings=FAST_BRAIN,
+            return_to_idle_after=0.02,
+            metrics_interval=0.05,
+            handle_signals=False,
+            on_ready=lambda port: ready.set_result(port),
+        )
+        rec = Recorder(app.bus)
+        task = asyncio.create_task(app.run())
+        await asyncio.wait([ready, task], timeout=5, return_when=asyncio.FIRST_COMPLETED)
+        if not ready.done():
+            raise RuntimeError(f"ядро не стартовало: {task.result() if task.done() else 'таймаут'}")
+        port = ready.result()
+        try:
+            yield RunningApp(app, port, stdout, rec, task)
+        finally:
+            app.request_shutdown("конец теста")
+            await asyncio.wait_for(task, 5)
 
 
 async def open_client(port: int, *, origin: str = DEV_ORIGIN, token: str = TOKEN) -> ClientConnection:
