@@ -1,4 +1,4 @@
-# Протокол обмена (версия 1)
+# Протокол обмена (версия 2)
 
 Этот документ — единственный источник правды о том, как общаются три части приложения:
 
@@ -145,13 +145,41 @@ interface Hotkeys {
   repeat: string                   // "Ctrl+Alt+R"
   screen: string                   // "Ctrl+Alt+S"
 }
+
+// ---- этап 2: «мозг» (docs/brain.md) ----
+
+type BrainStatus = 'ready' | 'no_key' | 'invalid_key' | 'offline' | 'limit' | 'demo'
+
+interface BrainInfo {
+  status: BrainStatus
+  model: string                    // "claude-opus-5-5"
+  web_search: boolean              // включён ли поиск в интернете
+  message: string | null           // пояснение по-русски для статусов кроме ready/demo
+}
+
+interface UsageTotals {
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+  web_searches: number
+  cost_usd: number                 // оценка по таблице цен
+}
+
+interface MemoryFact {
+  key: string                      // snake_case, напр. "address_form"
+  value: string
+  updated_at: number               // ms epoch
+}
 ```
+
+Протокол версии 2 = версия 1 + поля и сообщения этапа 2 (`brain`, `usage`, `memory`). Обе стороны собираются вместе, поэтому совместимость со старой версией не поддерживается.
 
 ### 1.5 Сообщения ядро → UI
 
 | `type` | Поля | Когда |
 |---|---|---|
-| `hello` | `protocol: 1`, `core_version`, `state`, `demo: bool`, `assistant_name`, `wake_word` (произношение имени кириллицей, напр. «Свайворн»), `address_form`, `model`, `hotkeys: Hotkeys`, `ui: {reduced_motion: bool}`, `muted: bool`, `history: ChatMessage[]` (последние ≤ 100), `actions: ActionEntry[]` (последние ≤ 200), `confirmation: ConfirmationRequest \| null` | сразу после успешного `auth` |
+| `hello` | `protocol: 2`, `core_version`, `state`, `demo: bool`, `assistant_name`, `wake_word` (произношение имени кириллицей, напр. «Свайворн»), `address_form`, `model`, `hotkeys: Hotkeys`, `ui: {reduced_motion: bool}`, `muted: bool`, `history: ChatMessage[]` (последние ≤ 100), `actions: ActionEntry[]` (последние ≤ 200), `confirmation: ConfirmationRequest \| null`, `brain: BrainInfo`, `usage: {session: UsageTotals, month: UsageTotals, monthly_limit_usd: number}` (0 — без лимита), `memory: MemoryFact[]` | сразу после успешного `auth` |
 | `state` | `state`, `reason: string \| null` | при каждом переходе |
 | `audio_level` | `source: 'mic' \| 'tts'`, `level: number` (0..1) | не чаще 30 раз в секунду, только в `listening` (mic) и `speaking` (tts) |
 | `metrics` | все поля `Metrics` | раз в секунду |
@@ -163,7 +191,11 @@ interface Hotkeys {
 | `confirmation_countdown` | `action_id`, `expires_at` | вопрос договорён, пошёл отсчёт 15 с |
 | `confirmation_resolved` | `action_id`, `outcome: 'confirmed' \| 'denied' \| 'timeout' \| 'cancelled' \| 'stopped' \| 'superseded'`, `via: 'voice' \| 'button' \| 'text' \| null` | подтверждение закрыто |
 | `muted` | `muted: bool` | микрофон выключен/включён |
-| `notice` | `level: 'info' \| 'warning' \| 'error'`, `text`, `code: string \| null` | всплывающее уведомление. Коды: `muted`, `demo_voice`, `hotkey_unavailable`, `not_available_yet`. Уведомления о незарегистрированных горячих клавишах повторяются каждому новому клиенту сразу после `hello` |
+| `brain_status` | `brain: BrainInfo` | статус «мозга» изменился |
+| `usage` | `session: UsageTotals`, `month: UsageTotals`, `last_turn: UsageTotals`, `monthly_limit_usd: number` | после каждого ответа Claude |
+| `memory` | `facts: MemoryFact[]` (весь список) | долговременная память изменилась |
+| `session_reset` | — | начат новый диалог: UI очищает ленту |
+| `notice` | `level: 'info' \| 'warning' \| 'error'`, `text`, `code: string \| null` | всплывающее уведомление. Коды: `muted`, `demo_voice`, `hotkey_unavailable`, `not_available_yet`; этап 2: `brain_no_key`, `brain_invalid_key`, `brain_offline`, `brain_limit`, `brain_credit`, `brain_overloaded`, `brain_rate_limited`, `brain_model_access`, `brain_refusal`, `brain_error`. Уведомления о незарегистрированных горячих клавишах повторяются каждому новому клиенту сразу после `hello` |
 | `stopped` | `source: 'button' \| 'hotkey' \| 'voice' \| 'tray' \| 'emergency'` | сработал «Стоп» |
 | `pong` | — | ответ на `ping` |
 | `error` | `code`, `message` | ошибка протокола |
@@ -180,6 +212,9 @@ interface Hotkeys {
 | `mute` | `muted: bool` | выключить/включить микрофон |
 | `ping` | — | `pong` |
 | `demo` | `action: 'start' \| 'stop' \| 'set_state' \| 'confirmation' \| 'error_flash'`, `state?: AssistantState` | только в демо-режиме: управление сценарием (для скриншотов и проверки) |
+| `new_session` | — | начать новый диалог: история сессии очищается (долговременная память остаётся), всем клиентам — `session_reset` |
+| `memory_delete` | `key` | удалить факт из долговременной памяти (действие пользователя, без подтверждения) |
+| `memory_clear` | — | очистить долговременную память (UI сам спрашивает подтверждение у пользователя) |
 
 **`button_only` проверяет ядро, а не UI.** На запрос с `button_only: true` ядро принимает только ответ кнопкой — сообщение `confirm` (в `confirmation_resolved` это `via: "button"`): «да» голосом или текстом отклоняется, а запрос остаётся ожидающим — до нажатия кнопки, тайм-аута или «Стопа». «Нет» принимается любым способом: отказ ничего не выполняет.
 
@@ -195,7 +230,7 @@ interface Hotkeys {
 
 | `type` | Поля | Смысл |
 |---|---|---|
-| `ready` | `port`, `protocol: 1`, `hotkeys: Hotkeys` | WebSocket слушает; оболочка регистрирует горячие клавиши и отдаёт порт UI |
+| `ready` | `port`, `protocol: 2`, `hotkeys: Hotkeys` | WebSocket слушает; оболочка регистрирует горячие клавиши и отдаёт порт UI |
 | `show_window` | — | показать и сфокусировать окно (ядро шлёт его, в частности, на `hotkey/activate`) |
 | `fatal` | `message` (по-русски) | ядро сейчас завершится с ошибкой; оболочка не перезапускает его и передаёт сообщение UI (`core-status` `fatal`, §4) |
 

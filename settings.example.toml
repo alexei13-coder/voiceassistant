@@ -4,8 +4,11 @@ wake_word = "Свайворн"        # как произносится: сло�
 address_form = "сэр"          # как обращаться к пользователю; спросим при первом запуске (этап 2)
 
 [llm]
-model = "claude-opus-5-5"
-effort = "low"                # low | medium | high
+model = "claude-opus-5-5"     # claude-opus-5-5 | claude-sonnet-5-5 | claude-haiku-5-5
+effort = "low"                # low | medium | high — глубина рассуждений (выше — дольше и дороже)
+max_tokens = 4096             # верхняя граница длины ответа
+web_search = true             # поиск в интернете силами Claude (≈ $10 за 1000 поисков)
+monthly_limit_usd = 0         # лимит расходов за месяц, $; 0 — без лимита
 
 [hotkeys]
 activate = "Ctrl+Alt+J"       # нажатие — вызов, удержание — говорить, пока держите
@@ -19,7 +22,7 @@ screen = "Ctrl+Alt+S"         # посмотреть на экран
 reduced_motion = false        # меньше анимаций для слабых ПК
 
 [demo]
-enabled = true                # этап 1: демонстрационный сценарий вместо «мозга»
+enabled = true                # демо-сценарий, пока нет ключа API (с ключом работает Claude)
 
 [logging]
 level = "INFO"                # DEBUG | INFO | WARNING | ERROR

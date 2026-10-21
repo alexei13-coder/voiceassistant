@@ -16,9 +16,11 @@
 settings.toml        настройки (создаётся с комментариями при первом запуске)
 .env                 секреты: ANTHROPIC_API_KEY=...
 logs/core.log        лог ядра (ротация: 1 МБ × 5 файлов), секреты вырезаны
+memory.json          долговременная память (этап 2)
+usage.json           расходы на API по месяцам (этап 2)
 ```
 
-Позже (этап 2+): `memory.json`, `contacts.toml`, `logs/audit.jsonl`.
+Позже: `contacts.toml` (этап 4), `logs/audit.jsonl` (этап 4).
 
 ## Порядок загрузки `.env`
 
@@ -37,8 +39,11 @@ wake_word = "Свайворн"        # как произносится: сло�
 address_form = "сэр"          # как обращаться к пользователю; спросим при первом запуске (этап 2)
 
 [llm]
-model = "claude-opus-5-5"
-effort = "low"                # low | medium | high
+model = "claude-opus-5-5"     # claude-opus-5-5 | claude-sonnet-5-5 | claude-haiku-5-5
+effort = "low"                # low | medium | high — глубина рассуждений (выше — дольше и дороже)
+max_tokens = 4096             # верхняя граница длины ответа
+web_search = true             # поиск в интернете силами Claude (≈ $10 за 1000 поисков)
+monthly_limit_usd = 0         # лимит расходов за месяц, $; 0 — без лимита
 
 [hotkeys]
 activate = "Ctrl+Alt+J"       # нажатие — вызов, удержание — говорить, пока держите
@@ -52,7 +57,7 @@ screen = "Ctrl+Alt+S"         # посмотреть на экран
 reduced_motion = false        # меньше анимаций для слабых ПК
 
 [demo]
-enabled = true                # этап 1: демонстрационный сценарий вместо «мозга»
+enabled = true                # демо-сценарий, пока нет ключа API (с ключом работает Claude)
 
 [logging]
 level = "INFO"                # DEBUG | INFO | WARNING | ERROR
@@ -69,9 +74,9 @@ python -m swyvorn [--dev] [--port N] [--demo | --no-demo] [--no-stdin]
 
 | Флаг | Значение |
 |---|---|
-| `--dev` | режим разработки: разрешены Origin `http://localhost:1420`, читается `.env` из корня репозитория, без `SWYVORN_IPC_TOKEN` токен генерируется и печатается в stderr |
+| `--dev` | режим разработки: разрешены Origin `http://localhost:1420`, читается `.env` из корня репозитория, без `SWYVORN_IPC_TOKEN` токен генерируется и печатается в stderr; учитывается `SWYVORN_ANTHROPIC_BASE_URL` (поддельный сервер API для тестов, см. docs/brain.md) |
 | `--port N` | порт WebSocket; `0` — случайный (по умолчанию: `0` без `--dev`, `8765` с `--dev`) |
-| `--demo` / `--no-demo` | переопределить `[demo] enabled` |
+| `--demo` / `--no-demo` | `--demo` — демо-сценарий даже при наличии ключа API (для разработки); `--no-demo` — без демо, даже если ключа нет |
 | `--no-stdin` | не слушать управляющий канал stdin (запуск без оболочки) |
 | `--data-dir PATH` | папка данных |
 | `--log-level LEVEL` | уровень логирования |

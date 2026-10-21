@@ -8,6 +8,7 @@ dependencies = [
     "psutil>=7.2,<8",
     "pydantic>=2.14,<3",
     "python-dotenv>=1.2,<2",
+    "anthropic>=1.17,<2",
 ]
 
 [dependency-groups]
